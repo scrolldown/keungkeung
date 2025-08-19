@@ -1,5 +1,5 @@
 /* ==========================================================================
-   위치 기반 포토 업로더 - 메인 JavaScript
+   위치 기반 포토 업로더 - 메인 JavaScript (수정됨)
    ========================================================================== */
 
 "use strict";
@@ -12,6 +12,7 @@ let map = null;
 let userLocation = null;
 let markers = [];
 let infoWindow = null;
+let pendingMarkers = []; // 지도 로드 전 대기 중인 마커들
 
 /* ==========================================================================
    위치 관리자 (LocationManager)
@@ -24,6 +25,7 @@ const LocationManager = {
             return;
         }
 
+        DEV_TOOLS.log('위치 정보 요청 시작');
         navigator.geolocation.getCurrentPosition(
             this.onLocationSuccess.bind(this),
             this.onLocationError.bind(this)
@@ -55,32 +57,37 @@ const LocationManager = {
         
         currentLocationSpan.textContent = `위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
         locationInfo.classList.add('active');
+        DEV_TOOLS.log('위치 정보 UI 업데이트 완료');
     },
 
     // 위치 오류 메시지 표시
     showLocationError(message) {
         document.getElementById('currentLocation').textContent = message;
+        DEV_TOOLS.warn('위치 오류 메시지 표시', message);
     },
 
     // 사용자 위치 마커 추가
     addUserLocationMarker(location) {
-        if (!map) return;
+        if (!map) {
+            DEV_TOOLS.warn('지도가 아직 초기화되지 않음 - 사용자 위치 마커 대기');
+            return;
+        }
 
         map.setCenter(location);
         
-        // Google Maps 객체 업데이트
-        GoogleMapsHelpers.updateMarkerIcons();
-        
-        new google.maps.Marker({
+        const userMarker = new google.maps.Marker({
             position: location,
             map: map,
             icon: {
-                url: 'data:image/svg+xml;base64,' + btoa(MARKER_ICONS.USER_LOCATION.svg),
-                scaledSize: MARKER_ICONS.USER_LOCATION.size,
-                anchor: MARKER_ICONS.USER_LOCATION.anchor
+                url: MARKER_ICONS.USER_LOCATION,
+                scaledSize: new google.maps.Size(24, 24),
+                anchor: new google.maps.Point(12, 12)
             },
-            title: "내 현재 위치"
+            title: "내 현재 위치",
+            zIndex: 1000
         });
+        
+        DEV_TOOLS.log('사용자 위치 마커 생성 완료', location);
     }
 };
 
@@ -104,12 +111,14 @@ const TabManager = {
         DEV_TOOLS.log(`탭 전환: ${tabName}`);
         
         // 지도 탭일 때 지도 초기화
-        if (tabName === 'map' && !map) {
-            setTimeout(() => {
-                if (typeof google !== 'undefined' && google.maps) {
-                    MapController.init();
-                }
-            }, 100);
+        if (tabName === 'map') {
+            if (!map && typeof google !== 'undefined' && google.maps) {
+                DEV_TOOLS.log('지도 탭 활성화 - 지도 초기화 시작');
+                MapController.init();
+            } else if (map) {
+                // 지도가 이미 있다면 대기 중인 마커들 확인
+                MapController.processPendingMarkers();
+            }
         }
     }
 };
@@ -135,9 +144,38 @@ const MapController = {
         });
 
         infoWindow = new google.maps.InfoWindow();
-        LocationManager.getCurrentLocation();
+        
+        DEV_TOOLS.log('지도 객체 생성 완료');
+        
+        // 사용자 위치 마커 추가 (위치 정보가 있다면)
+        if (userLocation) {
+            LocationManager.addUserLocationMarker(userLocation);
+        } else {
+            LocationManager.getCurrentLocation();
+        }
+        
+        // 대기 중인 마커들 처리
+        this.processPendingMarkers();
         
         DEV_TOOLS.log('지도 초기화 완료');
+    },
+
+    // 대기 중인 마커들 처리
+    processPendingMarkers() {
+        if (!map || pendingMarkers.length === 0) {
+            DEV_TOOLS.log('처리할 대기 마커 없음', {map: !!map, pendingCount: pendingMarkers.length});
+            return;
+        }
+        
+        DEV_TOOLS.log(`대기 중인 마커 ${pendingMarkers.length}개 처리 시작`);
+        
+        pendingMarkers.forEach(markerData => {
+            this.createMarkerOnMap(markerData.file, markerData.location);
+        });
+        
+        // 처리 완료 후 대기 배열 초기화
+        pendingMarkers = [];
+        DEV_TOOLS.log('모든 대기 마커 처리 완료');
     },
 
     // 내 위치로 이동
@@ -146,6 +184,8 @@ const MapController = {
             map.setCenter(userLocation);
             map.setZoom(APP_CONFIG.DEFAULT_ZOOM);
             DEV_TOOLS.log('지도 중심을 사용자 위치로 이동');
+        } else {
+            DEV_TOOLS.warn('지도 또는 사용자 위치 없음', {map: !!map, userLocation: !!userLocation});
         }
     },
 
@@ -157,7 +197,8 @@ const MapController = {
             map.fitBounds(bounds);
             DEV_TOOLS.log(`모든 사진 표시 (${markers.length}개 마커)`);
         } else {
-            DEV_TOOLS.warn('표시할 사진이 없습니다');
+            DEV_TOOLS.warn('표시할 사진이 없거나 지도가 없음', {map: !!map, markerCount: markers.length});
+            alert('지도를 먼저 로드하거나 사진을 업로드해주세요.');
         }
     },
 
@@ -166,35 +207,48 @@ const MapController = {
         alert(MESSAGES.MAP.HELP);
     },
 
-    // 사진 마커 추가
+    // 사진 마커 추가 (공용 인터페이스)
     addPhotoMarker(file, location) {
-        DEV_TOOLS.log(`마커 추가: ${file.name}`, location);
+        DEV_TOOLS.log(`마커 추가 요청: ${file.name}`, location);
         
         if (!map) {
-            DEV_TOOLS.error('지도가 초기화되지 않음');
+            // 지도가 없으면 대기 배열에 추가
+            pendingMarkers.push({ file, location });
+            DEV_TOOLS.log('지도 미초기화 - 마커를 대기 배열에 추가', {pendingCount: pendingMarkers.length});
+            return;
+        }
+        
+        // 지도가 있으면 즉시 생성
+        this.createMarkerOnMap(file, location);
+    },
+
+    // 실제 지도에 마커 생성
+    createMarkerOnMap(file, location) {
+        if (!map) {
+            DEV_TOOLS.error('지도 없음 - 마커 생성 불가');
             return;
         }
 
-        // Google Maps 객체 업데이트
-        GoogleMapsHelpers.updateMarkerIcons();
+        DEV_TOOLS.log(`지도에 마커 생성: ${file.name}`, location);
 
         const marker = new google.maps.Marker({
             position: location,
             map: map,
             icon: {
-                url: 'data:image/svg+xml;base64,' + btoa(MARKER_ICONS.PHOTO_LOCATION.svg),
-                scaledSize: MARKER_ICONS.PHOTO_LOCATION.size,
-                anchor: MARKER_ICONS.PHOTO_LOCATION.anchor
+                url: MARKER_ICONS.PHOTO_LOCATION,
+                scaledSize: new google.maps.Size(32, 32),
+                anchor: new google.maps.Point(16, 16)
             },
             title: file.name,
-            animation: google.maps.Animation.DROP
+            animation: google.maps.Animation.DROP,
+            zIndex: 100
         });
 
         // 마커 이벤트 등록
         this.addMarkerEvents(marker, file, location);
         markers.push(marker);
         
-        DEV_TOOLS.log(`마커 배열에 추가. 총 마커 수: ${markers.length}`);
+        DEV_TOOLS.log(`마커 생성 완료. 총 마커 수: ${markers.length}`);
     },
 
     // 마커 이벤트 등록
@@ -255,6 +309,8 @@ const FileUploader = {
         // 파일 선택 이벤트
         fileInput.addEventListener('change', this.onFileSelect.bind(this));
         cameraInput.addEventListener('change', this.onFileSelect.bind(this));
+        
+        DEV_TOOLS.log('파일 업로더 이벤트 리스너 설정 완료');
     },
 
     // 드래그 오버 이벤트
@@ -273,6 +329,7 @@ const FileUploader = {
         e.preventDefault();
         document.getElementById('uploadArea').classList.remove('dragover');
         const files = Array.from(e.dataTransfer.files);
+        DEV_TOOLS.log(`드롭된 파일 수: ${files.length}`);
         this.handleFiles(files);
     },
 
@@ -286,6 +343,7 @@ const FileUploader = {
     // 파일 선택 이벤트
     onFileSelect(e) {
         const files = Array.from(e.target.files);
+        DEV_TOOLS.log(`선택된 파일 수: ${files.length}`);
         this.handleFiles(files);
     },
 
@@ -303,7 +361,10 @@ const FileUploader = {
 
     // 파일 처리
     handleFiles(files) {
+        DEV_TOOLS.log(`파일 처리 시작: ${files.length}개 파일`);
+        
         if (!userLocation) {
+            DEV_TOOLS.log('사용자 위치 없음 - 위치 정보 요청');
             LocationManager.getCurrentLocation();
             setTimeout(() => this.handleFiles(files), 1000);
             return;
@@ -311,6 +372,7 @@ const FileUploader = {
 
         const validFiles = this.validateFiles(files);
         if (validFiles.length > 0) {
+            DEV_TOOLS.log(`유효한 파일 ${validFiles.length}개 - 업로드 시작`);
             this.simulateUpload(validFiles);
         }
     },
@@ -320,10 +382,12 @@ const FileUploader = {
         return files.filter(file => {
             if (!file.type.startsWith('image/')) {
                 alert(`${file.name}${MESSAGES.UPLOAD.INVALID_TYPE}`);
+                DEV_TOOLS.warn(`잘못된 파일 형식: ${file.name} (${file.type})`);
                 return false;
             }
             if (file.size > APP_CONFIG.MAX_FILE_SIZE) {
                 alert(`${file.name}${MESSAGES.UPLOAD.TOO_LARGE}`);
+                DEV_TOOLS.warn(`파일 크기 초과: ${file.name} (${file.size} bytes)`);
                 return false;
             }
             return true;
@@ -339,6 +403,8 @@ const FileUploader = {
         progressElement.style.display = 'block';
         let progress = 0;
         
+        DEV_TOOLS.log('업로드 시뮬레이션 시작');
+        
         const progressInterval = setInterval(() => {
             progress += Math.random() * 15;
             if (progress >= 100) {
@@ -348,6 +414,7 @@ const FileUploader = {
                     progressElement.style.display = 'none';
                     this.processFiles(files);
                     UIManager.showSuccessMessage();
+                    DEV_TOOLS.log('업로드 시뮬레이션 완료');
                 }, 500);
             }
             
@@ -358,7 +425,7 @@ const FileUploader = {
 
     // 파일 처리 및 미리보기 생성
     processFiles(files) {
-        DEV_TOOLS.log(`파일 처리 시작: ${files.length}개`, files);
+        DEV_TOOLS.log(`파일 처리 시작: ${files.length}개`, files.map(f => f.name));
         
         files.forEach(file => {
             const fileId = Date.now() + Math.random();
@@ -367,21 +434,21 @@ const FileUploader = {
             const fileData = { id: fileId, file, location };
             uploadedFiles.push(fileData);
             
-            DEV_TOOLS.log(`파일 데이터 추가`, fileData);
+            DEV_TOOLS.log(`파일 데이터 추가: ${file.name}`, {id: fileId, location});
             
-            // 지도에 마커 추가
+            // 지도에 마커 추가 (지도가 없으면 대기 배열에 추가됨)
             MapController.addPhotoMarker(file, location);
             
             // 미리보기 생성
             this.createPreview(fileId, file, location);
         });
         
-        DEV_TOOLS.log(`파일 처리 완료. 총 파일 수: ${uploadedFiles.length}`);
+        DEV_TOOLS.log(`파일 처리 완료. 총 파일 수: ${uploadedFiles.length}, 총 마커 수: ${markers.length}, 대기 마커 수: ${pendingMarkers.length}`);
     },
 
     // 위치 생성 (약간의 오프셋 추가)
     generateLocation() {
-        const location = userLocation ? {...userLocation} : APP_CONFIG.DEFAULT_LOCATION;
+        const location = userLocation ? {...userLocation} : {...APP_CONFIG.DEFAULT_LOCATION};
         location.lat += (Math.random() - 0.5) * APP_CONFIG.RANDOM_OFFSET;
         location.lng += (Math.random() - 0.5) * APP_CONFIG.RANDOM_OFFSET;
         return location;
@@ -411,15 +478,25 @@ const FileUploader = {
         const fileIndex = uploadedFiles.findIndex(f => f.id === fileId);
         
         if (fileIndex !== -1) {
+            const removedFile = uploadedFiles[fileIndex];
+            
             // 마커 제거
-            if (markers[fileIndex]) {
-                markers[fileIndex].setMap(null);
-                markers.splice(fileIndex, 1);
-                DEV_TOOLS.log(`마커 제거 완료: 인덱스 ${fileIndex}`);
+            const markerIndex = markers.findIndex(marker => marker.getTitle() === removedFile.file.name);
+            if (markerIndex !== -1) {
+                markers[markerIndex].setMap(null);
+                markers.splice(markerIndex, 1);
+                DEV_TOOLS.log(`마커 제거 완료: ${removedFile.file.name}`);
+            }
+            
+            // 대기 중인 마커에서도 제거
+            const pendingIndex = pendingMarkers.findIndex(p => p.file.name === removedFile.file.name);
+            if (pendingIndex !== -1) {
+                pendingMarkers.splice(pendingIndex, 1);
+                DEV_TOOLS.log(`대기 마커에서 제거: ${removedFile.file.name}`);
             }
             
             // 파일 데이터 제거
-            const removedFile = uploadedFiles.splice(fileIndex, 1)[0];
+            uploadedFiles.splice(fileIndex, 1);
             DEV_TOOLS.log('파일 데이터 제거 완료', removedFile);
         }
         
@@ -433,6 +510,8 @@ const FileUploader = {
                 break;
             }
         }
+        
+        DEV_TOOLS.log(`파일 제거 완료. 남은 파일: ${uploadedFiles.length}개, 마커: ${markers.length}개`);
     }
 };
 
@@ -444,6 +523,7 @@ const PhotoPopup = {
     showByFileName(fileName) {
         const fileData = uploadedFiles.find(f => f.file.name === fileName);
         if (fileData) {
+            DEV_TOOLS.log(`파일명으로 팝업 표시: ${fileName}`);
             this.show(fileData.file, fileData.location);
         } else {
             DEV_TOOLS.error(`파일을 찾을 수 없음: ${fileName}`);
@@ -500,6 +580,7 @@ const PhotoPopup = {
             // 팝업 표시
             overlay.style.display = 'block';
             popup.style.display = 'block';
+            DEV_TOOLS.log('팝업 표시 완료');
         };
         reader.readAsDataURL(fileData.file);
     },
@@ -603,6 +684,8 @@ function initializeApp() {
         return;
     }
     
+    DEV_TOOLS.log('앱 초기화 시작');
+    
     // 전역 함수 노출 (HTML onclick 이벤트용)
     window.removeFileById = (fileId) => {
         FileUploader.removeFile(fileId);
@@ -623,10 +706,19 @@ function initializeApp() {
         console.log('=== 📊 디버그 정보 ===');
         console.log('📁 업로드된 파일:', uploadedFiles);
         console.log('📍 마커 배열:', markers);
+        console.log('⏳ 대기 마커 배열:', pendingMarkers);
         console.log('🌍 사용자 위치:', userLocation);
         console.log('🗺️ 지도 객체:', map);
         console.log('⚙️ 앱 설정:', APP_CONFIG);
         console.log('==================');
+        
+        // 추가 분석
+        console.log('📊 분석:');
+        console.log(`- 업로드된 파일 수: ${uploadedFiles.length}`);
+        console.log(`- 지도의 마커 수: ${markers.length}`);
+        console.log(`- 대기 중인 마커 수: ${pendingMarkers.length}`);
+        console.log(`- 지도 초기화 상태: ${map ? '완료' : '미완료'}`);
+        console.log(`- 사용자 위치 획득: ${userLocation ? '완료' : '미완료'}`);
     };
 
     window.enableDebugMode = () => {
@@ -646,6 +738,9 @@ function initializeApp() {
             markers.forEach(marker => marker.setMap(null));
             markers = [];
             
+            // 대기 마커 초기화
+            pendingMarkers = [];
+            
             // 파일 데이터 초기화
             uploadedFiles = [];
             
@@ -654,6 +749,15 @@ function initializeApp() {
             
             DEV_TOOLS.log('모든 파일이 삭제되었습니다');
             console.log('✅ 모든 파일이 삭제되었습니다.');
+        }
+    };
+
+    window.forceMapInit = () => {
+        if (typeof google !== 'undefined' && google.maps) {
+            MapController.init();
+            console.log('🗺️ 지도를 강제로 초기화했습니다.');
+        } else {
+            console.error('❌ Google Maps API가 로드되지 않았습니다.');
         }
     };
 
@@ -666,6 +770,7 @@ function initializeApp() {
 • enableDebugMode() - 디버그 모드 활성화
 • disableDebugMode() - 디버그 모드 비활성화
 • clearAllFiles() - 모든 파일 삭제
+• forceMapInit() - 지도 강제 초기화
 
 🔧 개발자 정보:
 • GitHub: keungkeung
@@ -716,14 +821,12 @@ window.initGoogleMaps = () => {
             console.log('Google Maps API 로드 완료');
         }
         
-        // Google Maps 아이콘 객체 업데이트
-        if (typeof GoogleMapsHelpers !== 'undefined') {
-            GoogleMapsHelpers.updateMarkerIcons();
-        }
-        
         // 지도 탭이 활성화되어 있다면 즉시 초기화
-        if (document.getElementById('mapTab').classList.contains('active')) {
+        const mapTab = document.getElementById('mapTab');
+        if (mapTab && mapTab.classList.contains('active')) {
             MapController.init();
+        } else {
+            console.log('지도 탭이 활성화되면 자동으로 초기화됩니다.');
         }
     } else {
         console.error('Google Maps API 로드 실패');
