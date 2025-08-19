@@ -5,416 +5,822 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>위치 기반 포토 업로더</title>
     <meta name="description" content="사진을 업로드하고 지도에서 위치를 확인하세요">
-    <meta name="keywords" content="사진업로드, GPS, 지도, 위치기반, 포토갤러리">
-    <meta name="author" content="keungkeung">
-    <meta name="robots" content="index, follow">
-    
-    <!-- PWA 관련 메타데이터 -->
-    <meta name="theme-color" content="#667eea">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="포토 업로더">
-    
-    <!-- 파비콘 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📸</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📸</text></svg>">
-    
-    <!-- 외부 스타일시트 -->
-    <link rel="stylesheet" href="styles.css">
-    
-    <!-- 프리로드 리소스 -->
-    <link rel="preload" href="config.js" as="script">
-    <link rel="preload" href="app.js" as="script">
-</head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            z-index: 1000;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 12px;
+        }
+
+        .tab-container {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            height: calc(100vh - 140px);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .upload-section {
+            padding: 20px;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .upload-subtext {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .location-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .location-info.active {
+            display: block;
+        }
+
+        .preview-area {
+            margin-top: 20px;
+        }
+
+        .preview-item {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-img {
+            width: 100%;
+            max-height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .preview-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-details {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .file-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .file-location {
+            font-size: 10px;
+            color: #667eea;
+        }
+
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .remove-btn:hover {
+            background: #ff3742;
+            transform: scale(1.1);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .map-btn {
+            background: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .map-btn:hover {
+            background: #f5f5f5;
+            transform: scale(1.1);
+        }
+
+        .upload-progress {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #2ed573, #1e90ff);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .photo-popup {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+            max-height: 300px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .photo-popup img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .photo-popup-content {
+            padding: 12px;
+        }
+
+        .photo-popup-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .photo-popup-location {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .photo-popup-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
 <body>
-    <!-- ===================== 메인 컨테이너 ===================== -->
     <div class="container">
-        <!-- 헤더 섹션 -->
-        <header class="header">
+        <div class="header">
             <h1>📸 위치 기반 포토 업로더</h1>
             <p>사진을 업로드하고 지도에서 위치를 확인하세요</p>
-        </header>
+        </div>
         
-        <!-- 탭 네비게이션 -->
-        <nav class="tab-container" role="tablist">
-            <button class="tab active" 
-                    onclick="TabManager.showTab('upload')" 
-                    role="tab" 
-                    aria-selected="true" 
-                    aria-controls="uploadTab">
-                📤 업로드
-            </button>
-            <button class="tab" 
-                    onclick="TabManager.showTab('map')" 
-                    role="tab" 
-                    aria-selected="false" 
-                    aria-controls="mapTab">
-                🗺️ 지도
-            </button>
-        </nav>
+        <div class="tab-container">
+            <button class="tab active" onclick="showTab('upload')">📤 업로드</button>
+            <button class="tab" onclick="showTab('map')">🗺️ 지도</button>
+        </div>
 
-        <!-- 업로드 탭 -->
-        <main id="uploadTab" class="tab-content active" role="tabpanel" aria-labelledby="upload-tab">
-            <section class="upload-section">
-                <!-- 업로드 영역 -->
-                <div class="upload-area" id="uploadArea" role="button" tabindex="0" aria-label="파일 업로드 영역">
-                    <div class="upload-icon" aria-hidden="true">📷</div>
+        <div id="uploadTab" class="tab-content active">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
                     <div class="upload-text">사진을 선택하거나 드래그하세요</div>
-                    <div class="upload-subtext">GPS 위치 정보가 자동으로 기록되고 지도에서 확인할 수 있습니다</div>
+                    <div class="upload-subtext">GPS 위치 정보가 자동으로 기록됩니다</div>
                     <div class="btn-group">
-                        <button class="btn btn-primary" onclick="FileUploader.openCamera()" type="button">
+                        <button class="btn btn-primary" onclick="openCamera()">
                             📷 카메라
                         </button>
-                        <button class="btn btn-secondary" onclick="FileUploader.openGallery()" type="button">
+                        <button class="btn btn-secondary" onclick="openGallery()">
                             🖼️ 갤러리
                         </button>
                     </div>
                 </div>
 
-                <!-- 위치 정보 -->
-                <div class="location-info" id="locationInfo" role="status" aria-live="polite">
+                <div class="location-info" id="locationInfo">
                     <div>📍 현재 위치: <span id="currentLocation">위치 정보를 가져오는 중...</span></div>
                 </div>
 
-                <!-- 숨겨진 파일 입력 -->
-                <input type="file" 
-                       id="fileInput" 
-                       class="file-input" 
-                       multiple 
-                       accept="image/*" 
-                       aria-label="갤러리에서 이미지 선택">
-                <input type="file" 
-                       id="cameraInput" 
-                       class="file-input" 
-                       accept="image/*" 
-                       capture="environment" 
-                       aria-label="카메라로 사진 촬영">
+                <input type="file" id="fileInput" class="file-input" multiple accept="image/*">
+                <input type="file" id="cameraInput" class="file-input" accept="image/*" capture="environment">
 
-                <!-- 업로드 진행률 -->
-                <div class="upload-progress" id="uploadProgress" role="progressbar" aria-live="polite">
+                <div class="upload-progress" id="uploadProgress">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
                     <div class="progress-text" id="progressText">업로드 중...</div>
                 </div>
 
-                <!-- 성공 메시지 -->
-                <div class="success-message" id="successMessage" role="alert" aria-live="assertive">
+                <div class="success-message" id="successMessage">
                     ✅ 사진이 성공적으로 업로드되었습니다!
                 </div>
 
-                <!-- 미리보기 영역 -->
-                <section class="preview-area" id="previewArea" aria-label="업로드된 사진 미리보기"></section>
-            </section>
-        </main>
+                <div class="preview-area" id="previewArea"></div>
+            </div>
+        </div>
 
-        <!-- 지도 탭 -->
-        <div id="mapTab" class="tab-content" role="tabpanel" aria-labelledby="map-tab">
-            <div id="map" role="application" aria-label="사진 위치를 표시하는 지도">
-                <div class="loading" id="mapLoading" role="status" aria-live="polite">
+        <div id="mapTab" class="tab-content">
+            <div id="map">
+                <div class="loading" id="mapLoading">
                     🗺️ 지도를 로딩하는 중입니다...
                 </div>
-                
-                <!-- 지도 컨트롤 -->
-                <div class="map-controls" style="display: none;" id="mapControls" role="toolbar" aria-label="지도 컨트롤">
-                    <button class="map-btn" 
-                            onclick="MapController.centerMap()" 
-                            title="내 위치로 이동" 
-                            aria-label="내 위치로 이동" 
-                            type="button">
-                        📍
-                    </button>
-                    <button class="map-btn" 
-                            onclick="MapController.showAllPhotos()" 
-                            title="모든 사진이 보이도록 확대/축소" 
-                            aria-label="모든 사진 보기" 
-                            type="button">
-                        🖼️
-                    </button>
-                    <button class="map-btn" 
-                            onclick="MapController.showHelp()" 
-                            title="도움말" 
-                            aria-label="도움말 보기" 
-                            type="button">
-                        ❓
-                    </button>
+                <div class="map-controls" style="display: none;" id="mapControls">
+                    <button class="map-btn" onclick="centerMap()" title="내 위치로">📍</button>
+                    <button class="map-btn" onclick="showAllPhotos()" title="모든 사진">🖼️</button>
                 </div>
-                
-                <!-- 사진 팝업 오버레이 -->
-                <div class="photo-popup-overlay" 
-                     id="photoPopupOverlay" 
-                     onclick="PhotoPopup.close()" 
-                     role="button" 
-                     tabindex="0" 
-                     aria-label="팝업 닫기"></div>
-                
-                <!-- 사진 팝업 -->
-                <dialog class="photo-popup" id="photoPopup" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
-                    <button class="photo-popup-close" 
-                            onclick="PhotoPopup.close()" 
-                            type="button" 
-                            aria-label="팝업 닫기">×</button>
-                    <img id="popupImage" src="" alt="" loading="lazy">
+                <div class="photo-popup" id="photoPopup">
+                    <button class="photo-popup-close" onclick="closePhotoPopup()">×</button>
+                    <img id="popupImage" src="" alt="">
                     <div class="photo-popup-content">
-                        <div class="photo-popup-header">
-                            <div>
-                                <h3 class="photo-popup-title" id="popupTitle"></h3>
-                                <div class="photo-popup-size" id="popupSize"></div>
-                                <div class="photo-popup-location" id="popupLocation"></div>
-                                <div class="photo-popup-time" id="popupTime"></div>
-                            </div>
-                        </div>
-                        <div class="photo-popup-actions">
-                            <button class="photo-popup-btn primary" 
-                                    onclick="PhotoPopup.downloadPhoto()" 
-                                    type="button" 
-                                    aria-label="사진 다운로드">
-                                📥 다운로드
-                            </button>
-                            <button class="photo-popup-btn secondary" 
-                                    onclick="PhotoPopup.shareLocation()" 
-                                    type="button" 
-                                    aria-label="위치 정보 공유">
-                                📍 위치 공유
-                            </button>
-                        </div>
+                        <div class="photo-popup-title" id="popupTitle"></div>
+                        <div class="photo-popup-location" id="popupLocation"></div>
                     </div>
-                </dialog>
+                </div>
             </div>
         </div>
     </div>
-<!-- ===================== 스크립트 로딩 (수정됨) ===================== -->
-    
-    <!-- 에러 핸들링 및 기본 설정 -->
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU&libraries=geometry&callback=initMap" async defer></script>
     <script>
-        // 전역 에러 핸들러 (가장 먼저 설정)
-        window.addEventListener('error', function(e) {
-            console.error('🚨 스크립트 로딩 오류:', e.filename, e.message, e.lineno, e.colno);
+        let uploadedFiles = [];
+        let map;
+        let userLocation = null;
+        let markers = [];
+        let infoWindow;
+
+        // Google Maps 초기화
+        function initMap() {
+            // 로딩 메시지 숨기기
+            document.getElementById('mapLoading').style.display = 'none';
+            document.getElementById('mapControls').style.display = 'flex';
+
+            // 기본 위치 (서울)
+            const defaultLocation = { lat: 37.5665, lng: 126.9780 };
             
-            // 특정 오류에 대한 사용자 알림
-            if (e.filename && e.filename.includes('config.js')) {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: defaultLocation,
+                mapTypeControl: false,
+                fullscreenControl: false,
+                streetViewControl: false,
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]
+                    }
+                ]
+            });
+
+            infoWindow = new google.maps.InfoWindow();
+
+            // 사용자 위치 가져오기
+            getCurrentLocation();
+        }
+
+        // 현재 위치 가져오기
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        updateLocationInfo(userLocation);
+                        
+                        if (map) {
+                            map.setCenter(userLocation);
+                            
+                            // 사용자 위치 마커
+                            new google.maps.Marker({
+                                position: userLocation,
+                                map: map,
+                                icon: {
+                                    url: 'data:image/svg+xml;base64,' + btoa(`
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4285F4">
+                                            <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="3" fill="white"/>
+                                        </svg>
+                                    `),
+                                    scaledSize: new google.maps.Size(24, 24),
+                                    anchor: new google.maps.Point(12, 12)
+                                },
+                                title: "내 현재 위치"
+                            });
+                        }
+                    },
+                    (error) => {
+                        console.error('위치 정보를 가져올 수 없습니다:', error);
+                        document.getElementById('currentLocation').textContent = '위치 정보를 사용할 수 없습니다';
+                    }
+                );
+            }
+        }
+
+        function updateLocationInfo(location) {
+            const locationInfo = document.getElementById('locationInfo');
+            const currentLocationSpan = document.getElementById('currentLocation');
+            
+            currentLocationSpan.textContent = `위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+            locationInfo.classList.add('active');
+        }
+
+        // 탭 전환
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            if (tabName === 'map' && !map) {
                 setTimeout(() => {
-                    if (typeof APP_CONFIG === 'undefined') {
-                        console.error('config.js 로딩 실패 - 기본 설정으로 대체');
+                    if (typeof google !== 'undefined' && google.maps) {
+                        initMap();
                     }
                 }, 100);
+            }
+        }
+
+        // 지도 제어
+        function centerMap() {
+            if (map && userLocation) {
+                map.setCenter(userLocation);
+                map.setZoom(15);
+            }
+        }
+
+        function showAllPhotos() {
+            if (map && markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                markers.forEach(marker => bounds.extend(marker.getPosition()));
+                map.fitBounds(bounds);
+            }
+        }
+
+        // 사진에 마커 추가
+        function addPhotoMarker(file, location) {
+            if (!map) return;
+
+            const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                icon: {
+                    url: 'data:image/svg+xml;base64,' + btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF4757">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(32, 32),
+                    anchor: new google.maps.Point(16, 32)
+                },
+                title: file.name
+            });
+
+            // 마커 클릭 이벤트
+            marker.addListener('click', () => {
+                showPhotoPopup(file, location);
+            });
+
+            markers.push(marker);
+        }
+
+        function showPhotoPopup(file, location) {
+            const popup = document.getElementById('photoPopup');
+            const image = document.getElementById('popupImage');
+            const title = document.getElementById('popupTitle');
+            const locationText = document.getElementById('popupLocation');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                image.src = e.target.result;
+                title.textContent = file.name;
+                locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+                popup.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function closePhotoPopup() {
+            document.getElementById('photoPopup').style.display = 'none';
+        }
+
+        // 파일 업로드 관련
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const cameraInput = document.getElementById('cameraInput');
+        const previewArea = document.getElementById('previewArea');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const successMessage = document.getElementById('successMessage');
+
+        // 드래그 앤 드롭 이벤트
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            handleFiles(files);
+        });
+
+        uploadArea.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('btn')) {
+                fileInput.click();
             }
         });
-        
-        // Google Maps API 콜백 함수 (가장 먼저 정의)
-        window.initGoogleMaps = function() {
-            console.log('🗺️ Google Maps API 로드 완료');
-            
-            // MapController가 로드되었는지 확인
-            if (typeof window.MapController !== 'undefined') {
-                const mapTab = document.getElementById('mapTab');
-                if (mapTab && mapTab.classList.contains('active')) {
-                    window.MapController.init();
-                }
-            } else {
-                console.log('MapController 로드 대기 중...');
-                // MapController 로드 대기
-                let checkInterval = setInterval(() => {
-                    if (typeof window.MapController !== 'undefined') {
-                        clearInterval(checkInterval);
-                        const mapTab = document.getElementById('mapTab');
-                        if (mapTab && mapTab.classList.contains('active')) {
-                            window.MapController.init();
-                        }
-                        console.log('MapController 로드 완료 - 지도 준비됨');
-                    }
-                }, 100);
-            }
-        };
-        
-        // 임시 기본 객체들 (config.js 로드 실패 대비)
-        window.tempConfig = {
-            DEBUG_MODE: true,
-            MAX_FILE_SIZE: 5 * 1024 * 1024,
-            DEFAULT_LOCATION: { lat: 37.5665, lng: 126.9780 },
-            DEFAULT_ZOOM: 15,
-            APP_NAME: '위치 기반 포토 업로더',
-            APP_VERSION: '1.0.1',
-            GOOGLE_MAPS_API_KEY: 'AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU'
-        };
-        
-        window.tempDevTools = {
-            log: (msg, data) => console.log(`[TEMP] ${msg}`, data || ''),
-            error: (msg, error) => console.error(`[TEMP] ${msg}`, error || ''),
-            warn: (msg, data) => console.warn(`[TEMP] ${msg}`, data || ''),
-            isReady: () => true
-        };
-    </script>
-    
-    <!-- 설정 파일 로딩 (개선됨) -->
-    <script>
-        // config.js 동적 로딩 함수
-        function loadConfigScript() {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = 'config.js';
-                script.onload = function() {
-                    console.log('✅ config.js 로드 성공');
-                    
-                    // 로드 검증
-                    if (typeof APP_CONFIG !== 'undefined' && typeof DEV_TOOLS !== 'undefined') {
-                        console.log('✅ 모든 설정 객체 로드 완료');
-                        resolve();
-                    } else {
-                        console.warn('⚠️ 일부 설정 객체가 누락됨');
-                        // 누락된 객체들 기본값으로 대체
-                        if (typeof APP_CONFIG === 'undefined') {
-                            window.APP_CONFIG = window.tempConfig;
-                            console.log('APP_CONFIG를 기본값으로 대체');
-                        }
-                        if (typeof DEV_TOOLS === 'undefined') {
-                            window.DEV_TOOLS = window.tempDevTools;
-                            console.log('DEV_TOOLS를 기본값으로 대체');
-                        }
-                        resolve();
-                    }
-                };
-                script.onerror = function(error) {
-                    console.error('❌ config.js 로드 실패:', error);
-                    // 기본 설정으로 대체
-                    window.APP_CONFIG = window.tempConfig;
-                    window.DEV_TOOLS = window.tempDevTools;
-                    window.MESSAGES = {
-                        LOCATION: {
-                            LOADING: '위치 정보를 가져오는 중...',
-                            ERROR: '위치 정보를 사용할 수 없습니다',
-                            UNSUPPORTED: '위치 정보를 지원하지 않는 브라우저입니다.'
-                        },
-                        UPLOAD: {
-                            SUCCESS: '✅ 사진이 성공적으로 업로드되었습니다!',
-                            INVALID_TYPE: '은(는) 이미지 파일이 아닙니다.',
-                            TOO_LARGE: '의 크기가 5MB를 초과합니다.',
-                            UPLOADING: '업로드 중...'
-                        }
-                    };
-                    console.log('⚠️ 기본 설정으로 진행');
-                    reject(error);
-                };
-                document.head.appendChild(script);
-            });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            handleFiles(files);
+        });
+
+        cameraInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            handleFiles(files);
+        });
+
+        function openCamera() {
+            cameraInput.click();
         }
-        
-        // app.js 동적 로딩 함수
-        function loadAppScript() {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = 'app.js';
-                script.onload = function() {
-                    console.log('✅ app.js 로드 성공');
-                    resolve();
-                };
-                script.onerror = function(error) {
-                    console.error('❌ app.js 로드 실패:', error);
-                    alert('애플리케이션을 로드할 수 없습니다. 페이지를 새로고침해주세요.');
-                    reject(error);
-                };
-                document.head.appendChild(script);
-            });
+
+        function openGallery() {
+            fileInput.click();
         }
-        
-        // Google Maps API 로딩 함수
-        function loadGoogleMapsAPI() {
-            // API 키 확인
-            const apiKey = (window.APP_CONFIG && window.APP_CONFIG.GOOGLE_MAPS_API_KEY) || 
-                           window.tempConfig.GOOGLE_MAPS_API_KEY;
-            
-            if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-                console.error('❌ Google Maps API 키가 설정되지 않았습니다.');
+
+        function handleFiles(files) {
+            if (!userLocation) {
+                getCurrentLocation();
+                setTimeout(() => handleFiles(files), 1000);
                 return;
             }
-            
-            console.log('🗺️ Google Maps API 로딩 시작...');
-            
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&callback=initGoogleMaps`;
-            script.async = true;
-            script.defer = true;
-            script.onload = function() {
-                console.log('📡 Google Maps 스크립트 로드 완료');
-            };
-            script.onerror = function() {
-                console.error('❌ Google Maps API 로딩 실패 - API 키를 확인해주세요');
-                // 지도 없이도 업로드 기능은 사용 가능하도록 함
-                const mapLoading = document.getElementById('mapLoading');
-                if (mapLoading) {
-                    mapLoading.innerHTML = '❌ 지도를 로드할 수 없습니다.<br>API 키를 확인해주세요.';
-                }
-            };
-            document.head.appendChild(script);
-        }
-        
-        // 순차적 로딩 실행
-        async function initializeApplication() {
-            try {
-                // 1. config.js 로드 (실패해도 계속 진행)
-                try {
-                    await loadConfigScript();
-                } catch (configError) {
-                    console.warn('config.js 로드 실패했지만 기본 설정으로 계속 진행');
-                }
-                
-                // 2. app.js 로드
-                await loadAppScript();
-                
-                // 3. Google Maps API 로드
-                loadGoogleMapsAPI();
-                
-                console.log('🚀 모든 스크립트 로딩 완료');
-                
-            } catch (error) {
-                console.error('❌ 애플리케이션 초기화 실패:', error);
-                alert('애플리케이션을 시작할 수 없습니다. 페이지를 새로고침해주세요.');
-            }
-        }
-        
-        // DOM 로드 완료 후 시작
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApplication);
-        } else {
-            initializeApplication();
-        }
-    </script>
 
-    <!-- CSS 로딩 확인 -->
-    <script>
-        function checkCSSLoading() {
-            const link = document.querySelector('link[href="styles.css"]');
-            if (link) {
-                link.onerror = function() {
-                    console.error('❌ styles.css 파일을 로드할 수 없습니다.');
-                    // 기본 인라인 스타일 적용
-                    const style = document.createElement('style');
-                    style.textContent = `
-                        body { font-family: Arial, sans-serif; margin: 0; background: #f0f0f0; }
-                        .container { max-width: 800px; margin: 0 auto; background: white; min-height: 100vh; }
-                        .header { background: #667eea; color: white; padding: 20px; text-align: center; }
-                        .tab-container { display: flex; border-bottom: 1px solid #ddd; }
-                        .tab { flex: 1; padding: 15px; background: white; border: none; cursor: pointer; }
-                        .tab.active { color: #667eea; border-bottom: 3px solid #667eea; }
-                        .tab-content { display: none; padding: 20px; }
-                        .tab-content.active { display: block; }
-                        .upload-area { border: 2px dashed #667eea; padding: 40px; text-align: center; margin: 20px 0; border-radius: 10px; }
-                        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
-                        .btn-primary { background: #667eea; color: white; }
-                        #map { width: 100%; height: 400px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; }
-                    `;
-                    document.head.appendChild(style);
-                    console.log('⚠️ 기본 스타일 적용됨');
-                };
+            const validFiles = files.filter(file => {
+                if (!file.type.startsWith('image/')) {
+                    alert(`${file.name}은(는) 이미지 파일이 아닙니다.`);
+                    return false;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`${file.name}의 크기가 5MB를 초과합니다.`);
+                    return false;
+                }
+                return true;
+            });
+
+            if (validFiles.length > 0) {
+                simulateUpload(validFiles);
             }
         }
-        
-        checkCSSLoading();
+
+        function simulateUpload(files) {
+            uploadProgress.style.display = 'block';
+            let progress = 0;
+            
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(progressInterval);
+                    setTimeout(() => {
+                        uploadProgress.style.display = 'none';
+                        addFilesToPreview(files);
+                        showSuccessMessage();
+                    }, 500);
+                }
+                
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `업로드 중... ${Math.round(progress)}%`;
+            }, 200);
+        }
+
+        function addFilesToPreview(files) {
+            files.forEach(file => {
+                const fileId = Date.now() + Math.random();
+                const location = userLocation ? {...userLocation} : {lat: 37.5665, lng: 126.9780};
+                
+                // 약간의 랜덤 오프셋 추가
+                location.lat += (Math.random() - 0.5) * 0.001;
+                location.lng += (Math.random() - 0.5) * 0.001;
+                
+                uploadedFiles.push({ id: fileId, file, location });
+                
+                // 지도에 마커 추가
+                addPhotoMarker(file, location);
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewItem = createPreviewItem(fileId, file, location, e.target.result);
+                    previewArea.appendChild(previewItem);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function createPreviewItem(fileId, file, location, imageSrc) {
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+            item.innerHTML = `
+                <img src="${imageSrc}" alt="${file.name}" class="preview-img">
+                <div class="preview-info">
+                    <div class="file-details">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-size">${formatFileSize(file.size)}</div>
+                        <div class="file-location">📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}</div>
+                    </div>
+                    <button class="remove-btn" onclick="removeFile(${fileId})">×</button>
+                </div>
+            `;
+            return item;
+        }
+
+        function removeFile(fileId) {
+            const fileIndex = uploadedFiles.findIndex(f => f.id === fileId);
+            if (fileIndex !== -1) {
+                // 마커 제거
+                if (markers[fileIndex]) {
+                    markers[fileIndex].setMap(null);
+                    markers.splice(fileIndex, 1);
+                }
+                
+                uploadedFiles.splice(fileIndex, 1);
+            }
+            
+            const previewItems = previewArea.children;
+            for (let i = 0; i < previewItems.length; i++) {
+                const removeBtn = previewItems[i].querySelector('.remove-btn');
+                if (removeBtn.getAttribute('onclick').includes(fileId)) {
+                    previewItems[i].remove();
+                    break;
+                }
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showSuccessMessage() {
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+        }
+
+        // 페이지 로드 시 위치 정보 요청
+        window.addEventListener('load', () => {
+            getCurrentLocation();
+        });
     </script>
-    <!-- 웹 앱 매니페스트 (PWA - 선택사항) -->
-    <!-- <link rel="manifest" href="/manifest.json"> -->
 </body>
 </html>
-
