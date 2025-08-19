@@ -3,6 +3,7 @@ const APP_CONFIG = {
     // 파일 업로드 관련 설정
     MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
     SUPPORTED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+
     
     // 지도 관련 설정
     DEFAULT_LOCATION: { 
