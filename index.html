@@ -188,19 +188,81 @@
 
     <!-- ===================== 스크립트 로딩 ===================== -->
     
-    <!-- 설정 파일 (우선 로딩) -->
-    <script src="config.js"></script>
-    
-    <!-- 메인 애플리케이션 스크립트 -->
-    <script src="app.js"></script>
-    
-    <!-- Google Maps API (동적 로딩) -->
+    <!-- 에러 핸들링 -->
     <script>
-        // Google Maps API 동적 로딩
+        // 전역 에러 핸들러
+        window.addEventListener('error', function(e) {
+            console.error('스크립트 로딩 오류:', e.filename, e.message);
+        });
+        
+        // CSS 로딩 확인
+        function checkCSSLoading() {
+            const link = document.querySelector('link[href="styles.css"]');
+            if (link) {
+                link.onerror = function() {
+                    console.error('styles.css 파일을 로드할 수 없습니다.');
+                    // 인라인 기본 스타일 적용
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .container { max-width: 800px; margin: 0 auto; }
+                        .header { background: #667eea; color: white; padding: 20px; text-align: center; }
+                        .tab-container { display: flex; border-bottom: 1px solid #ddd; }
+                        .tab { flex: 1; padding: 15px; background: white; border: none; cursor: pointer; }
+                        .tab.active { color: #667eea; border-bottom: 3px solid #667eea; }
+                        .tab-content { display: none; padding: 20px; }
+                        .tab-content.active { display: block; }
+                        .upload-area { border: 2px dashed #667eea; padding: 40px; text-align: center; margin: 20px 0; }
+                        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+                        .btn-primary { background: #667eea; color: white; }
+                        .btn-secondary { background: #f0f0f0; color: #333; }
+                        #map { width: 100%; height: 400px; background: #f0f0f0; }
+                    `;
+                    document.head.appendChild(style);
+                };
+            }
+        }
+        
+        checkCSSLoading();
+    </script>
+    
+    <!-- 설정 파일 (우선 로딩) -->
+    <script>
+        // config.js 로딩
+        function loadConfig() {
+            const script = document.createElement('script');
+            script.src = 'config.js';
+            script.onload = function() {
+                console.log('✅ config.js 로드 완료');
+                loadApp();
+            };
+            script.onerror = function() {
+                console.error('❌ config.js 로드 실패');
+                alert('설정 파일을 로드할 수 없습니다. 페이지를 새로고침해주세요.');
+            };
+            document.head.appendChild(script);
+        }
+        
+        // 메인 앱 로딩
+        function loadApp() {
+            const script = document.createElement('script');
+            script.src = 'app.js';
+            script.onload = function() {
+                console.log('✅ app.js 로드 완료');
+                loadGoogleMaps();
+            };
+            script.onerror = function() {
+                console.error('❌ app.js 로드 실패');
+                alert('애플리케이션을 로드할 수 없습니다. 페이지를 새로고침해주세요.');
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Google Maps API 로딩
         function loadGoogleMaps() {
             // config.js 로드 확인
             if (typeof APP_CONFIG === 'undefined') {
-                console.error('config.js가 로드되지 않았습니다.');
+                console.error('APP_CONFIG가 정의되지 않았습니다.');
                 setTimeout(loadGoogleMaps, 100);
                 return;
             }
@@ -210,17 +272,18 @@
             script.src = `https://maps.googleapis.com/maps/api/js?key=${APP_CONFIG.GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initGoogleMaps`;
             script.async = true;
             script.defer = true;
-            script.onerror = () => {
-                console.error('Google Maps API 로딩 실패');
+            script.onerror = function() {
+                console.error('❌ Google Maps API 로딩 실패');
+                alert('지도 서비스를 로드할 수 없습니다. API 키를 확인해주세요.');
             };
             document.head.appendChild(script);
         }
         
-        // DOM 로드 완료 후 Google Maps API 로딩
+        // DOM 로드 완료 후 시작
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadGoogleMaps);
+            document.addEventListener('DOMContentLoaded', loadConfig);
         } else {
-            loadGoogleMaps();
+            loadConfig();
         }
     </script>
 
