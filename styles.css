@@ -1,0 +1,688 @@
+/* ==========================================================================
+   위치 기반 포토 업로더 - 스타일시트
+   ========================================================================== */
+
+/* ==========================================================================
+   기본 설정 및 전체 레이아웃
+   ========================================================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0 auto;
+    background: white;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* ==========================================================================
+   헤더 및 네비게이션
+   ========================================================================== */
+.header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    z-index: 1000;
+}
+
+.header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.header p {
+    opacity: 0.9;
+    font-size: 12px;
+}
+
+.tab-container {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+}
+
+.tab {
+    flex: 1;
+    padding: 15px;
+    text-align: center;
+    background: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    color: #666;
+    transition: all 0.3s ease;
+}
+
+.tab.active {
+    color: #667eea;
+    border-bottom: 3px solid #667eea;
+}
+
+.tab-content {
+    display: none;
+    height: calc(100vh - 140px);
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ==========================================================================
+   업로드 섹션 스타일
+   ========================================================================== */
+.upload-section {
+    padding: 20px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+}
+
+.upload-area {
+    border: 2px dashed #667eea;
+    border-radius: 16px;
+    padding: 30px 20px;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: #764ba2;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    transform: translateY(-2px);
+}
+
+.upload-area.dragover {
+    border-color: #764ba2;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 12px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+}
+
+.upload-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.upload-subtext {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.file-input {
+    display: none;
+}
+
+/* ==========================================================================
+   버튼 스타일
+   ========================================================================== */
+.btn-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(102, 126, 234, 0.2);
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   위치 정보 및 프리뷰 스타일
+   ========================================================================== */
+.location-info {
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    display: none;
+}
+
+.location-info.active {
+    display: block;
+}
+
+.preview-area {
+    margin-top: 20px;
+}
+
+.preview-item {
+    background: white;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.preview-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.preview-img {
+    width: 100%;
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.preview-img:hover {
+    transform: scale(1.02);
+}
+
+.preview-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.file-details {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.file-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-size {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.file-location {
+    font-size: 10px;
+    color: #667eea;
+}
+
+.remove-btn {
+    background: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.remove-btn:hover {
+    background: #ff3742;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   지도 관련 스타일
+   ========================================================================== */
+#map {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.map-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.map-btn {
+    background: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.map-btn:hover {
+    background: #f5f5f5;
+    transform: scale(1.1);
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-size: 14px;
+}
+
+/* ==========================================================================
+   마커 정보창 스타일
+   ========================================================================== */
+.marker-info-window {
+    max-width: 200px;
+    padding: 8px;
+    font-family: inherit;
+}
+
+.marker-info-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.marker-info-location {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.marker-info-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.marker-info-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ==========================================================================
+   사진 팝업 스타일
+   ========================================================================== */
+.photo-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    display: none;
+    animation: overlayFadeIn 0.3s ease-out;
+}
+
+.photo-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    z-index: 1001;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: none;
+    overflow: hidden;
+    animation: popupFadeIn 0.3s ease-out;
+}
+
+.photo-popup img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 16px 16px 0 0;
+}
+
+.photo-popup-content {
+    padding: 16px;
+}
+
+.photo-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.photo-popup-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.photo-popup-size {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.photo-popup-location {
+    font-size: 12px;
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+    padding: 6px 10px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+.photo-popup-time {
+    font-size: 11px;
+    color: #999;
+    margin-top: 8px;
+}
+
+.photo-popup-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.photo-popup-close:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+.photo-popup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.photo-popup-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.photo-popup-btn.primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.photo-popup-btn.secondary {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+}
+
+.photo-popup-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   진행률 및 메시지 스타일
+   ========================================================================== */
+.upload-progress {
+    margin-top: 15px;
+    display: none;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(102, 126, 234, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}
+
+.success-message {
+    background: linear-gradient(135deg, #2ed573, #1e90ff);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 12px;
+    margin-top: 15px;
+    display: none;
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* ==========================================================================
+   애니메이션
+   ========================================================================== */
+@keyframes popupFadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    80% {
+        transform: translateY(-5px);
+    }
+}
+
+.bounce {
+    animation: bounce 0.7s ease-in-out;
+}
+
+/* ==========================================================================
+   반응형 디자인
+   ========================================================================== */
+@media (max-width: 480px) {
+    .container {
+        border-radius: 0;
+    }
+    
+    .header h1 {
+        font-size: 18px;
+    }
+    
+    .upload-area {
+        padding: 20px 15px;
+    }
+    
+    .btn {
+        font-size: 11px;
+        padding: 10px 12px;
+    }
+    
+    .photo-popup {
+        max-width: 95vw;
+        max-height: 85vh;
+    }
+    
+    .photo-popup img {
+        height: 200px;
+    }
+    
+    .map-controls {
+        top: 5px;
+        right: 5px;
+    }
+    
+    .map-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 320px) {
+    .header {
+        padding: 15px;
+    }
+    
+    .upload-section {
+        padding: 15px;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .preview-item {
+        padding: 8px;
+    }
+}
+
+/* ==========================================================================
+   다크모드 지원 (추후 확장용)
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+    /* 다크모드 스타일은 나중에 추가 가능 */
+}
+
+/* ==========================================================================
+   인쇄 스타일
+   ========================================================================== */
+@media print {
+    .header, .tab-container, .map-controls, .photo-popup-overlay, .photo-popup {
+        display: none !important;
+    }
+    
+    .container {
+        background: white;
+    }
+    
+    .preview-item {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
