@@ -343,51 +343,152 @@
 
         .photo-popup {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             z-index: 1001;
-            max-height: 300px;
+            max-width: 90%;
+            max-height: 80%;
             display: none;
             overflow: hidden;
+            animation: popupSlideIn 0.3s ease-out;
+        }
+
+        @keyframes popupSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .photo-popup-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(4px);
         }
 
         .photo-popup img {
             width: 100%;
-            height: 200px;
+            height: 250px;
             object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .photo-popup img:hover {
+            transform: scale(1.02);
         }
 
         .photo-popup-content {
-            padding: 12px;
+            padding: 16px;
         }
 
         .photo-popup-title {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 4px;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .photo-popup-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
         }
 
         .photo-popup-location {
+            font-size: 13px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .photo-popup-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .photo-popup-size {
             font-size: 12px;
             color: #666;
         }
 
+        .photo-popup-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .photo-popup-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .photo-popup-btn.primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .photo-popup-btn.secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .photo-popup-btn:hover {
+            transform: translateY(-1px);
+        }
+
         .photo-popup-close {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(0, 0, 0, 0.7);
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.8);
             color: white;
             border: none;
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .photo-popup-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+
+        .marker-bounce {
+            animation: markerBounce 0.6s ease-in-out;
+        }
+
+        @keyframes markerBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         .loading {
@@ -462,12 +563,35 @@
                     <button class="map-btn" onclick="centerMap()" title="내 위치로">📍</button>
                     <button class="map-btn" onclick="showAllPhotos()" title="모든 사진">🖼️</button>
                 </div>
+                
+                <!-- 사진 팝업 오버레이 -->
+                <div class="photo-popup-overlay" id="photoPopupOverlay" onclick="closePhotoPopup()"></div>
+                
+                <!-- 개선된 사진 팝업 -->
                 <div class="photo-popup" id="photoPopup">
                     <button class="photo-popup-close" onclick="closePhotoPopup()">×</button>
-                    <img id="popupImage" src="" alt="">
+                    <img id="popupImage" src="" alt="" onclick="openFullscreen()">
                     <div class="photo-popup-content">
-                        <div class="photo-popup-title" id="popupTitle"></div>
-                        <div class="photo-popup-location" id="popupLocation"></div>
+                        <div class="photo-popup-title" id="popupTitle">사진 제목</div>
+                        <div class="photo-popup-info">
+                            <div class="photo-popup-location" id="popupLocation">
+                                📍 위치 정보
+                            </div>
+                            <div class="photo-popup-date" id="popupDate">
+                                📅 업로드 시간
+                            </div>
+                            <div class="photo-popup-size" id="popupSize">
+                                📏 파일 크기
+                            </div>
+                        </div>
+                        <div class="photo-popup-actions">
+                            <button class="photo-popup-btn primary" onclick="downloadPhoto()">
+                                💾 다운로드
+                            </button>
+                            <button class="photo-popup-btn secondary" onclick="shareLocation()">
+                                📤 위치 공유
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -606,42 +730,146 @@
                 map: map,
                 icon: {
                     url: 'data:image/svg+xml;base64,' + btoa(`
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF4757">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="#FF4757">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            <circle cx="12" cy="9" r="3" fill="white"/>
+                            <text x="12" y="12" text-anchor="middle" fill="#FF4757" font-size="8" font-weight="bold">📷</text>
                         </svg>
                     `),
-                    scaledSize: new google.maps.Size(32, 32),
-                    anchor: new google.maps.Point(16, 32)
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
                 },
-                title: file.name
+                title: `📷 ${file.name}`,
+                animation: google.maps.Animation.DROP
             });
 
-            // 마커 클릭 이벤트
+            // 마커 클릭 이벤트 - 개선된 버전
             marker.addListener('click', () => {
-                showPhotoPopup(file, location);
+                // 마커 바운스 애니메이션
+                marker.setAnimation(google.maps.Animation.BOUNCE);
+                setTimeout(() => {
+                    marker.setAnimation(null);
+                }, 2100);
+
+                // 사진 팝업 표시
+                showPhotoPopup(file, location, marker);
+            });
+
+            // 마커 호버 효과
+            marker.addListener('mouseover', () => {
+                marker.setIcon({
+                    url: 'data:image/svg+xml;base64,' + btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#FF3742">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            <circle cx="12" cy="9" r="3" fill="white"/>
+                            <text x="12" y="12" text-anchor="middle" fill="#FF3742" font-size="8" font-weight="bold">📷</text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(44, 44),
+                    anchor: new google.maps.Point(22, 44)
+                });
+            });
+
+            marker.addListener('mouseout', () => {
+                marker.setIcon({
+                    url: 'data:image/svg+xml;base64,' + btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="#FF4757">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            <circle cx="12" cy="9" r="3" fill="white"/>
+                            <text x="12" y="12" text-anchor="middle" fill="#FF4757" font-size="8" font-weight="bold">📷</text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
+                });
             });
 
             markers.push(marker);
         }
 
-        function showPhotoPopup(file, location) {
+        function showPhotoPopup(file, location, marker) {
             const popup = document.getElementById('photoPopup');
+            const overlay = document.getElementById('photoPopupOverlay');
             const image = document.getElementById('popupImage');
             const title = document.getElementById('popupTitle');
             const locationText = document.getElementById('popupLocation');
+            const dateText = document.getElementById('popupDate');
+            const sizeText = document.getElementById('popupSize');
 
             const reader = new FileReader();
             reader.onload = (e) => {
+                // 사진 정보 설정
                 image.src = e.target.result;
-                title.textContent = file.name;
-                locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+                title.textContent = file.name.length > 30 ? file.name.substring(0, 30) + '...' : file.name;
+                locationText.innerHTML = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+                dateText.innerHTML = `📅 ${new Date().toLocaleString('ko-KR')}`;
+                sizeText.innerHTML = `📏 ${formatFileSize(file.size)}`;
+
+                // 현재 파일을 전역 변수에 저장 (다운로드용)
+                window.currentPhotoFile = file;
+                window.currentPhotoLocation = location;
+
+                // 팝업 표시
+                overlay.style.display = 'block';
                 popup.style.display = 'block';
+
+                // 지도 중심을 마커 위치로 이동
+                map.panTo(location);
             };
             reader.readAsDataURL(file);
         }
 
         function closePhotoPopup() {
-            document.getElementById('photoPopup').style.display = 'none';
+            const popup = document.getElementById('photoPopup');
+            const overlay = document.getElementById('photoPopupOverlay');
+            
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        // 사진 전체화면 보기
+        function openFullscreen() {
+            const image = document.getElementById('popupImage');
+            if (image.requestFullscreen) {
+                image.requestFullscreen();
+            } else if (image.webkitRequestFullscreen) {
+                image.webkitRequestFullscreen();
+            } else if (image.msRequestFullscreen) {
+                image.msRequestFullscreen();
+            }
+        }
+
+        // 사진 다운로드
+        function downloadPhoto() {
+            if (window.currentPhotoFile) {
+                const link = document.createElement('a');
+                link.download = window.currentPhotoFile.name;
+                link.href = URL.createObjectURL(window.currentPhotoFile);
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }
+        }
+
+        // 위치 공유
+        function shareLocation() {
+            if (window.currentPhotoLocation) {
+                const location = window.currentPhotoLocation;
+                const shareText = `📷 사진 위치: 위도 ${location.lat.toFixed(6)}, 경도 ${location.lng.toFixed(6)}`;
+                const googleMapsUrl = `https://maps.google.com/?q=${location.lat},${location.lng}`;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: '사진 위치 공유',
+                        text: shareText,
+                        url: googleMapsUrl
+                    });
+                } else {
+                    // 클립보드에 복사
+                    navigator.clipboard.writeText(`${shareText}\n${googleMapsUrl}`).then(() => {
+                        alert('위치 정보가 클립보드에 복사되었습니다!');
+                    });
+                }
+            }
         }
 
         // 파일 업로드 관련
@@ -820,6 +1048,43 @@
         // 페이지 로드 시 위치 정보 요청
         window.addEventListener('load', () => {
             getCurrentLocation();
+        });
+
+        // ESC 키로 팝업 닫기
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePhotoPopup();
+            }
+        });
+
+        // 모바일에서 스와이프로 팝업 닫기
+        let startY = 0;
+        let currentY = 0;
+        
+        document.getElementById('photoPopup').addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        });
+
+        document.getElementById('photoPopup').addEventListener('touchmove', (e) => {
+            currentY = e.touches[0].clientY;
+            const diffY = startY - currentY;
+            
+            // 아래로 스와이프 시 팝업 이동
+            if (diffY < 0) {
+                e.target.style.transform = `translate(-50%, -50%) translateY(${Math.abs(diffY) * 0.5}px)`;
+            }
+        });
+
+        document.getElementById('photoPopup').addEventListener('touchend', (e) => {
+            const diffY = startY - currentY;
+            
+            // 충분히 아래로 스와이프했으면 팝업 닫기
+            if (diffY < -100) {
+                closePhotoPopup();
+            } else {
+                // 원래 위치로 복귀
+                e.target.style.transform = 'translate(-50%, -50%)';
+            }
         });
     </script>
 </body>
