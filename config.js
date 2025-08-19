@@ -30,21 +30,34 @@ const APP_CONFIG = {
     DEBUG_MODE: true // 임시로 true로 설정해서 디버깅
 };
 
-// ===================== 마커 아이콘 설정 =====================
+// ===================== 안전한 Base64 인코딩 함수 =====================
+function safeBtoa(str) {
+    try {
+        // UTF-8 문자열을 안전하게 Base64로 인코딩
+        return btoa(unescape(encodeURIComponent(str)));
+    } catch (error) {
+        console.error('Base64 encoding failed:', error);
+        // 실패 시 URL 인코딩으로 대체
+        return 'data:image/svg+xml,' + encodeURIComponent(str);
+    }
+}
+
+// ===================== 마커 아이콘 설정 (수정됨) =====================
 const MARKER_ICONS = {
-    // 사용자 위치 마커 (간단한 SVG)
-    USER_LOCATION: `data:image/svg+xml;base64,` + btoa(`
+    // 사용자 위치 마커 (이모지 제거, 안전한 SVG)
+    USER_LOCATION: `data:image/svg+xml;base64,` + safeBtoa(`
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
             <circle cx="12" cy="12" r="3" fill="white"/>
         </svg>
     `),
     
-    // 사진 위치 마커 (간단한 SVG)
-    PHOTO_LOCATION: `data:image/svg+xml;base64,` + btoa(`
+    // 사진 위치 마커 (이모지를 도형으로 대체)
+    PHOTO_LOCATION: `data:image/svg+xml;base64,` + safeBtoa(`
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" fill="#FF4757" stroke="white" stroke-width="2"/>
-            <text x="12" y="16" text-anchor="middle" font-size="12" fill="white">📷</text>
+            <rect x="8" y="9" width="8" height="6" rx="1" fill="white"/>
+            <circle cx="12" cy="12" r="1.5" fill="#FF4757"/>
         </svg>
     `)
 };
@@ -103,33 +116,47 @@ const MESSAGES = {
     }
 };
 
-// ===================== 개발자 도구 =====================
+// ===================== 개발자 도구 (수정됨) =====================
 const DEV_TOOLS = {
-    log: (message, data = null) => {
-        if (APP_CONFIG.DEBUG_MODE) {
-            console.log(`[${APP_CONFIG.APP_NAME}] ${message}`, data || '');
+    log: function(message, data) {
+        if (APP_CONFIG && APP_CONFIG.DEBUG_MODE) {
+            console.log(`[${APP_CONFIG.APP_NAME || 'APP'}] ${message}`, data || '');
         }
     },
     
-    error: (message, error = null) => {
-        console.error(`[${APP_CONFIG.APP_NAME}] ERROR: ${message}`, error || '');
+    error: function(message, error) {
+        console.error(`[${APP_CONFIG && APP_CONFIG.APP_NAME || 'APP'}] ERROR: ${message}`, error || '');
     },
     
-    warn: (message, data = null) => {
-        if (APP_CONFIG.DEBUG_MODE) {
-            console.warn(`[${APP_CONFIG.APP_NAME}] WARNING: ${message}`, data || '');
+    warn: function(message, data) {
+        if (APP_CONFIG && APP_CONFIG.DEBUG_MODE) {
+            console.warn(`[${APP_CONFIG.APP_NAME || 'APP'}] WARNING: ${message}`, data || '');
         }
+    },
+    
+    // 안전한 초기화 확인
+    isReady: function() {
+        return typeof APP_CONFIG !== 'undefined' && typeof MESSAGES !== 'undefined';
     }
 };
 
 // 전역으로 노출
 if (typeof window !== 'undefined') {
+    // 기존 객체들 노출
     window.APP_CONFIG = APP_CONFIG;
     window.MARKER_ICONS = MARKER_ICONS;
     window.MAP_STYLES = MAP_STYLES;
     window.MESSAGES = MESSAGES;
     window.DEV_TOOLS = DEV_TOOLS;
     
+    // 안전한 Base64 인코딩 함수도 전역으로 노출
+    window.safeBtoa = safeBtoa;
+    
     // 설정 로드 완료 알림
     console.log(`⚙️ ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 설정 로드 완료`);
+    
+    // DEV_TOOLS 사용 가능 상태 확인
+    if (DEV_TOOLS.isReady()) {
+        DEV_TOOLS.log('DEV_TOOLS 초기화 완료');
+    }
 }
