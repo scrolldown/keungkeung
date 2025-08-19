@@ -195,6 +195,34 @@
             console.error('스크립트 로딩 오류:', e.filename, e.message);
         });
         
+        // Google Maps API 콜백 함수 (가장 먼저 정의)
+        window.initGoogleMaps = function() {
+            console.log('🗺️ Google Maps API 로드 완료');
+            
+            // app.js의 MapController가 로드되었는지 확인
+            if (typeof MapController !== 'undefined') {
+                // 지도 탭이 활성화되어 있다면 즉시 초기화
+                const mapTab = document.getElementById('mapTab');
+                if (mapTab && mapTab.classList.contains('active')) {
+                    MapController.init();
+                }
+                console.log('지도 탭이 활성화되면 자동으로 초기화됩니다.');
+            } else {
+                console.log('MapController 로드 대기 중...');
+                // MapController가 로드될 때까지 대기
+                let checkInterval = setInterval(() => {
+                    if (typeof MapController !== 'undefined') {
+                        clearInterval(checkInterval);
+                        const mapTab = document.getElementById('mapTab');
+                        if (mapTab && mapTab.classList.contains('active')) {
+                            MapController.init();
+                        }
+                        console.log('MapController 로드 완료 - 지도 준비됨');
+                    }
+                }, 100);
+            }
+        };
+        
         // CSS 로딩 확인
         function checkCSSLoading() {
             const link = document.querySelector('link[href="styles.css"]');
@@ -267,11 +295,16 @@
                 return;
             }
             
+            console.log('🗺️ Google Maps API 로딩 시작...');
+            
             // Google Maps API 스크립트 생성
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${APP_CONFIG.GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initGoogleMaps`;
             script.async = true;
             script.defer = true;
+            script.onload = function() {
+                console.log('📡 Google Maps 스크립트 로드 완료');
+            };
             script.onerror = function() {
                 console.error('❌ Google Maps API 로딩 실패');
                 alert('지도 서비스를 로드할 수 없습니다. API 키를 확인해주세요.');
