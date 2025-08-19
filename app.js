@@ -719,6 +719,9 @@ function initializeApp() {
         console.log(`- 대기 중인 마커 수: ${pendingMarkers.length}`);
         console.log(`- 지도 초기화 상태: ${map ? '완료' : '미완료'}`);
         console.log(`- 사용자 위치 획득: ${userLocation ? '완료' : '미완료'}`);
+        
+        // Google Maps API 상태
+        console.log(`- Google Maps API: ${typeof google !== 'undefined' ? '로드됨' : '미로드'}`);
     };
 
     window.enableDebugMode = () => {
@@ -761,16 +764,39 @@ function initializeApp() {
         }
     };
 
+    window.testMarkerCreation = () => {
+        if (!userLocation) {
+            console.error('❌ 사용자 위치가 없습니다. 위치 권한을 허용해주세요.');
+            return;
+        }
+        
+        // 테스트용 가상 파일
+        const testFile = {
+            name: 'test-photo.jpg',
+            size: 1024 * 1024 // 1MB
+        };
+        
+        const testLocation = {
+            lat: userLocation.lat + 0.001,
+            lng: userLocation.lng + 0.001
+        };
+        
+        console.log('🧪 테스트 마커 생성 중...', testLocation);
+        MapController.addPhotoMarker(testFile, testLocation);
+        console.log('✅ 테스트 마커 생성 완료');
+    };
+
     // 개발자 콘솔 도우미 메시지
     console.log(`
 🚀 ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION}
 
 📋 사용 가능한 디버그 명령어:
 • debugUploadedFiles() - 현재 상태 확인
-• enableDebugMode() - 디버그 모드 활성화
+• enableDebugMode() - 디버그 모드 활성화  
 • disableDebugMode() - 디버그 모드 비활성화
 • clearAllFiles() - 모든 파일 삭제
 • forceMapInit() - 지도 강제 초기화
+• testMarkerCreation() - 테스트 마커 생성
 
 🔧 개발자 정보:
 • GitHub: keungkeung
@@ -808,27 +834,3 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
-
-/* ==========================================================================
-   Google Maps API 콜백 함수
-   ========================================================================== */
-window.initGoogleMaps = () => {
-    // Google Maps API가 로드된 후 호출되는 콜백
-    if (typeof google !== 'undefined' && google.maps) {
-        if (typeof DEV_TOOLS !== 'undefined') {
-            DEV_TOOLS.log('Google Maps API 로드 완료');
-        } else {
-            console.log('Google Maps API 로드 완료');
-        }
-        
-        // 지도 탭이 활성화되어 있다면 즉시 초기화
-        const mapTab = document.getElementById('mapTab');
-        if (mapTab && mapTab.classList.contains('active')) {
-            MapController.init();
-        } else {
-            console.log('지도 탭이 활성화되면 자동으로 초기화됩니다.');
-        }
-    } else {
-        console.error('Google Maps API 로드 실패');
-    }
-};
