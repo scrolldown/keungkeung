@@ -23,36 +23,30 @@ const APP_CONFIG = {
     
     // 앱 정보
     APP_NAME: '위치 기반 포토 업로더',
-    APP_VERSION: '1.0.0',
+    APP_VERSION: '1.0.1',
     APP_DESCRIPTION: '사진을 업로드하고 지도에서 위치를 확인하세요',
     
     // 디버그 모드
-    DEBUG_MODE: false // true로 설정하면 상세한 로그 출력
+    DEBUG_MODE: true // 임시로 true로 설정해서 디버깅
 };
 
 // ===================== 마커 아이콘 설정 =====================
 const MARKER_ICONS = {
-    // 사용자 위치 마커
-    USER_LOCATION: {
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4285F4">
-                <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
-                <circle cx="12" cy="12" r="3" fill="white"/>
-              </svg>`,
-        // Google Maps Size 객체는 나중에 생성
-        sizeData: { width: 24, height: 24 },
-        anchorData: { x: 12, y: 12 }
-    },
+    // 사용자 위치 마커 (간단한 SVG)
+    USER_LOCATION: `data:image/svg+xml;base64,` + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+            <circle cx="12" cy="12" r="3" fill="white"/>
+        </svg>
+    `),
     
-    // 사진 위치 마커
-    PHOTO_LOCATION: {
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="#FF4757">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9" r="3" fill="white"/>
-                <text x="12" y="11" text-anchor="middle" font-size="8" fill="#FF4757">📷</text>
-              </svg>`,
-        sizeData: { width: 36, height: 36 },
-        anchorData: { x: 18, y: 36 }
-    }
+    // 사진 위치 마커 (간단한 SVG)
+    PHOTO_LOCATION: `data:image/svg+xml;base64,` + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="#FF4757" stroke="white" stroke-width="2"/>
+            <text x="12" y="16" text-anchor="middle" font-size="12" fill="white">📷</text>
+        </svg>
+    `)
 };
 
 // ===================== 지도 스타일 설정 =====================
@@ -128,36 +122,6 @@ const DEV_TOOLS = {
     }
 };
 
-// ===================== Google Maps 객체 생성 헬퍼 =====================
-const GoogleMapsHelpers = {
-    createSize: (iconData) => {
-        if (typeof google !== 'undefined' && google.maps) {
-            return new google.maps.Size(iconData.sizeData.width, iconData.sizeData.height);
-        }
-        return null;
-    },
-    
-    createPoint: (iconData) => {
-        if (typeof google !== 'undefined' && google.maps) {
-            return new google.maps.Point(iconData.anchorData.x, iconData.anchorData.y);
-        }
-        return null;
-    },
-    
-    updateMarkerIcons: () => {
-        if (typeof google !== 'undefined' && google.maps) {
-            // Google Maps API가 로드된 후 Size와 Point 객체 생성
-            MARKER_ICONS.USER_LOCATION.size = GoogleMapsHelpers.createSize(MARKER_ICONS.USER_LOCATION);
-            MARKER_ICONS.USER_LOCATION.anchor = GoogleMapsHelpers.createPoint(MARKER_ICONS.USER_LOCATION);
-            
-            MARKER_ICONS.PHOTO_LOCATION.size = GoogleMapsHelpers.createSize(MARKER_ICONS.PHOTO_LOCATION);
-            MARKER_ICONS.PHOTO_LOCATION.anchor = GoogleMapsHelpers.createPoint(MARKER_ICONS.PHOTO_LOCATION);
-            
-            DEV_TOOLS.log('Google Maps 아이콘 객체 생성 완료');
-        }
-    }
-};
-
 // 전역으로 노출
 if (typeof window !== 'undefined') {
     window.APP_CONFIG = APP_CONFIG;
@@ -165,7 +129,6 @@ if (typeof window !== 'undefined') {
     window.MAP_STYLES = MAP_STYLES;
     window.MESSAGES = MESSAGES;
     window.DEV_TOOLS = DEV_TOOLS;
-    window.GoogleMapsHelpers = GoogleMapsHelpers;
     
     // 설정 로드 완료 알림
     console.log(`⚙️ ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 설정 로드 완료`);
