@@ -38,8 +38,9 @@ const MARKER_ICONS = {
                 <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
                 <circle cx="12" cy="12" r="3" fill="white"/>
               </svg>`,
-        size: new google.maps.Size(24, 24),
-        anchor: new google.maps.Point(12, 12)
+        // Google Maps Size 객체는 나중에 생성
+        sizeData: { width: 24, height: 24 },
+        anchorData: { x: 12, y: 12 }
     },
     
     // 사진 위치 마커
@@ -49,8 +50,8 @@ const MARKER_ICONS = {
                 <circle cx="12" cy="9" r="3" fill="white"/>
                 <text x="12" y="11" text-anchor="middle" font-size="8" fill="#FF4757">📷</text>
               </svg>`,
-        size: new google.maps.Size(36, 36),
-        anchor: new google.maps.Point(18, 36)
+        sizeData: { width: 36, height: 36 },
+        anchorData: { x: 18, y: 36 }
     }
 };
 
@@ -127,9 +128,45 @@ const DEV_TOOLS = {
     }
 };
 
+// ===================== Google Maps 객체 생성 헬퍼 =====================
+const GoogleMapsHelpers = {
+    createSize: (iconData) => {
+        if (typeof google !== 'undefined' && google.maps) {
+            return new google.maps.Size(iconData.sizeData.width, iconData.sizeData.height);
+        }
+        return null;
+    },
+    
+    createPoint: (iconData) => {
+        if (typeof google !== 'undefined' && google.maps) {
+            return new google.maps.Point(iconData.anchorData.x, iconData.anchorData.y);
+        }
+        return null;
+    },
+    
+    updateMarkerIcons: () => {
+        if (typeof google !== 'undefined' && google.maps) {
+            // Google Maps API가 로드된 후 Size와 Point 객체 생성
+            MARKER_ICONS.USER_LOCATION.size = GoogleMapsHelpers.createSize(MARKER_ICONS.USER_LOCATION);
+            MARKER_ICONS.USER_LOCATION.anchor = GoogleMapsHelpers.createPoint(MARKER_ICONS.USER_LOCATION);
+            
+            MARKER_ICONS.PHOTO_LOCATION.size = GoogleMapsHelpers.createSize(MARKER_ICONS.PHOTO_LOCATION);
+            MARKER_ICONS.PHOTO_LOCATION.anchor = GoogleMapsHelpers.createPoint(MARKER_ICONS.PHOTO_LOCATION);
+            
+            DEV_TOOLS.log('Google Maps 아이콘 객체 생성 완료');
+        }
+    }
+};
+
 // 전역으로 노출
-window.APP_CONFIG = APP_CONFIG;
-window.MARKER_ICONS = MARKER_ICONS;
-window.MAP_STYLES = MAP_STYLES;
-window.MESSAGES = MESSAGES;
-window.DEV_TOOLS = DEV_TOOLS;
+if (typeof window !== 'undefined') {
+    window.APP_CONFIG = APP_CONFIG;
+    window.MARKER_ICONS = MARKER_ICONS;
+    window.MAP_STYLES = MAP_STYLES;
+    window.MESSAGES = MESSAGES;
+    window.DEV_TOOLS = DEV_TOOLS;
+    window.GoogleMapsHelpers = GoogleMapsHelpers;
+    
+    // 설정 로드 완료 알림
+    console.log(`⚙️ ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 설정 로드 완료`);
+}
