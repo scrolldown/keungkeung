@@ -1,38 +1,10 @@
 {
   "version": 2,
   "name": "keungkeung-photo-uploader",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/styles.css",
-      "dest": "/styles.css",
-      "headers": {
-        "Content-Type": "text/css",
-        "Cache-Control": "public, max-age=86400"
-      }
-    },
-    {
-      "src": "/config.js",
-      "dest": "/config.js",
-      "headers": {
-        "Content-Type": "application/javascript",
-        "Cache-Control": "public, max-age=3600"
-      }
-    },
-    {
-      "src": "/app.js",
-      "dest": "/app.js",
-      "headers": {
-        "Content-Type": "application/javascript",
-        "Cache-Control": "public, max-age=3600"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -62,11 +34,15 @@
       ]
     },
     {
-      "source": "/app.js",
+      "source": "/styles.css",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "text/css"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=3600"
+          "value": "public, max-age=86400"
         }
       ]
     },
@@ -74,17 +50,25 @@
       "source": "/config.js",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=3600"
         }
       ]
     },
     {
-      "source": "/styles.css",
+      "source": "/app.js",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=86400"
+          "value": "public, max-age=3600"
         }
       ]
     }
