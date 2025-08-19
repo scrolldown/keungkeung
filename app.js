@@ -68,6 +68,9 @@ const LocationManager = {
 
         map.setCenter(location);
         
+        // Google Maps 객체 업데이트
+        GoogleMapsHelpers.updateMarkerIcons();
+        
         new google.maps.Marker({
             position: location,
             map: map,
@@ -171,6 +174,9 @@ const MapController = {
             DEV_TOOLS.error('지도가 초기화되지 않음');
             return;
         }
+
+        // Google Maps 객체 업데이트
+        GoogleMapsHelpers.updateMarkerIcons();
 
         const marker = new google.maps.Marker({
             position: location,
@@ -589,86 +595,70 @@ const Utils = {
    앱 초기화 및 이벤트 리스너
    ========================================================================== */
 
-// DOM 로드 완료 시 초기화
-document.addEventListener('DOMContentLoaded', () => {
-    // config.js가 로드되었는지 확인
-    if (typeof APP_CONFIG === 'undefined') {
-        console.error('config.js가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+// 앱 초기화 함수 (config.js 로드 후 호출됨)
+function initializeApp() {
+    // config.js 로드 확인
+    if (typeof APP_CONFIG === 'undefined' || typeof DEV_TOOLS === 'undefined') {
+        console.error('설정이 로드되지 않았습니다. config.js를 확인해주세요.');
         return;
     }
     
-    LocationManager.getCurrentLocation();
-    FileUploader.init();
-    DEV_TOOLS.log(`${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 초기화 완료`);
-});
+    // 전역 함수 노출 (HTML onclick 이벤트용)
+    window.removeFileById = (fileId) => {
+        FileUploader.removeFile(fileId);
+    };
 
-// ESC 키로 팝업 닫기
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        PhotoPopup.close();
-    }
-});
+    window.showPhotoFromMarker = (fileName) => {
+        PhotoPopup.showByFileName(fileName);
+    };
 
-/* ==========================================================================
-   전역 함수 노출 (HTML onclick 이벤트용)
-   ========================================================================== */
-window.removeFileById = (fileId) => {
-    FileUploader.removeFile(fileId);
-};
+    // 모듈들 전역 노출
+    window.TabManager = TabManager;
+    window.MapController = MapController;
+    window.FileUploader = FileUploader;
+    window.PhotoPopup = PhotoPopup;
 
-window.showPhotoFromMarker = (fileName) => {
-    PhotoPopup.showByFileName(fileName);
-};
+    // 디버깅 함수들 전역 노출
+    window.debugUploadedFiles = () => {
+        console.log('=== 📊 디버그 정보 ===');
+        console.log('📁 업로드된 파일:', uploadedFiles);
+        console.log('📍 마커 배열:', markers);
+        console.log('🌍 사용자 위치:', userLocation);
+        console.log('🗺️ 지도 객체:', map);
+        console.log('⚙️ 앱 설정:', APP_CONFIG);
+        console.log('==================');
+    };
 
-// 탭 관리자 전역 노출
-window.TabManager = TabManager;
-window.MapController = MapController;
-window.FileUploader = FileUploader;
-window.PhotoPopup = PhotoPopup;
+    window.enableDebugMode = () => {
+        APP_CONFIG.DEBUG_MODE = true;
+        console.log('🔧 디버그 모드가 활성화되었습니다.');
+        console.log('상세한 로그를 확인하려면 debugUploadedFiles()를 실행하세요.');
+    };
 
-/* ==========================================================================
-   디버깅 함수들
-   ========================================================================== */
-window.debugUploadedFiles = () => {
-    console.log('=== 📊 디버그 정보 ===');
-    console.log('📁 업로드된 파일:', uploadedFiles);
-    console.log('📍 마커 배열:', markers);
-    console.log('🌍 사용자 위치:', userLocation);
-    console.log('🗺️ 지도 객체:', map);
-    console.log('⚙️ 앱 설정:', APP_CONFIG);
-    console.log('==================');
-};
+    window.disableDebugMode = () => {
+        APP_CONFIG.DEBUG_MODE = false;
+        console.log('🔧 디버그 모드가 비활성화되었습니다.');
+    };
 
-window.enableDebugMode = () => {
-    APP_CONFIG.DEBUG_MODE = true;
-    console.log('🔧 디버그 모드가 활성화되었습니다.');
-    console.log('상세한 로그를 확인하려면 debugUploadedFiles()를 실행하세요.');
-};
+    window.clearAllFiles = () => {
+        if (confirm('모든 업로드된 파일을 삭제하시겠습니까?')) {
+            // 모든 마커 제거
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            
+            // 파일 데이터 초기화
+            uploadedFiles = [];
+            
+            // 미리보기 영역 초기화
+            document.getElementById('previewArea').innerHTML = '';
+            
+            DEV_TOOLS.log('모든 파일이 삭제되었습니다');
+            console.log('✅ 모든 파일이 삭제되었습니다.');
+        }
+    };
 
-window.disableDebugMode = () => {
-    APP_CONFIG.DEBUG_MODE = false;
-    console.log('🔧 디버그 모드가 비활성화되었습니다.');
-};
-
-window.clearAllFiles = () => {
-    if (confirm('모든 업로드된 파일을 삭제하시겠습니까?')) {
-        // 모든 마커 제거
-        markers.forEach(marker => marker.setMap(null));
-        markers = [];
-        
-        // 파일 데이터 초기화
-        uploadedFiles = [];
-        
-        // 미리보기 영역 초기화
-        document.getElementById('previewArea').innerHTML = '';
-        
-        DEV_TOOLS.log('모든 파일이 삭제되었습니다');
-        console.log('✅ 모든 파일이 삭제되었습니다.');
-    }
-};
-
-// 개발자 콘솔 도우미 메시지
-console.log(`
+    // 개발자 콘솔 도우미 메시지
+    console.log(`
 🚀 ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION}
 
 📋 사용 가능한 디버그 명령어:
@@ -679,8 +669,40 @@ console.log(`
 
 🔧 개발자 정보:
 • GitHub: keungkeung
-• 배포: Vercel (https://keungkeung.vercel.app)
-`);
+• 배포: Vercel
+    `);
+    
+    LocationManager.getCurrentLocation();
+    FileUploader.init();
+    DEV_TOOLS.log(`${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 초기화 완료`);
+}
+
+// DOM이 이미 로드되었다면 즉시 초기화, 아니면 대기
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // config.js가 로드되었는지 확인 후 초기화
+    if (typeof APP_CONFIG !== 'undefined') {
+        initializeApp();
+    } else {
+        // config.js 로드 대기
+        let configCheckInterval = setInterval(() => {
+            if (typeof APP_CONFIG !== 'undefined') {
+                clearInterval(configCheckInterval);
+                initializeApp();
+            }
+        }, 50);
+    }
+}
+
+// ESC 키로 팝업 닫기
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (typeof PhotoPopup !== 'undefined') {
+            PhotoPopup.close();
+        }
+    }
+});
 
 /* ==========================================================================
    Google Maps API 콜백 함수
@@ -688,12 +710,22 @@ console.log(`
 window.initGoogleMaps = () => {
     // Google Maps API가 로드된 후 호출되는 콜백
     if (typeof google !== 'undefined' && google.maps) {
-        DEV_TOOLS.log('Google Maps API 로드 완료');
+        if (typeof DEV_TOOLS !== 'undefined') {
+            DEV_TOOLS.log('Google Maps API 로드 완료');
+        } else {
+            console.log('Google Maps API 로드 완료');
+        }
+        
+        // Google Maps 아이콘 객체 업데이트
+        if (typeof GoogleMapsHelpers !== 'undefined') {
+            GoogleMapsHelpers.updateMarkerIcons();
+        }
+        
         // 지도 탭이 활성화되어 있다면 즉시 초기화
         if (document.getElementById('mapTab').classList.contains('active')) {
             MapController.init();
         }
     } else {
-        DEV_TOOLS.error('Google Maps API 로드 실패');
+        console.error('Google Maps API 로드 실패');
     }
 };
