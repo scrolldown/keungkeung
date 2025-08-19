@@ -5,6 +5,35 @@
 "use strict";
 
 /* ==========================================================================
+   안전한 개발자 도구 래퍼
+   ========================================================================== */
+const SafeDevTools = {
+    log: function(message, data) {
+        if (typeof DEV_TOOLS !== 'undefined' && DEV_TOOLS.log) {
+            DEV_TOOLS.log(message, data);
+        } else {
+            console.log(`[LOG] ${message}`, data || '');
+        }
+    },
+    
+    error: function(message, error) {
+        if (typeof DEV_TOOLS !== 'undefined' && DEV_TOOLS.error) {
+            DEV_TOOLS.error(message, error);
+        } else {
+            console.error(`[ERROR] ${message}`, error || '');
+        }
+    },
+    
+    warn: function(message, data) {
+        if (typeof DEV_TOOLS !== 'undefined' && DEV_TOOLS.warn) {
+            DEV_TOOLS.warn(message, data);
+        } else {
+            console.warn(`[WARN] ${message}`, data || '');
+        }
+    }
+};
+
+/* ==========================================================================
    전역 변수
    ========================================================================== */
 let uploadedFiles = [];
@@ -21,11 +50,11 @@ const LocationManager = {
     // 현재 위치 가져오기
     getCurrentLocation() {
         if (!navigator.geolocation) {
-            this.showLocationError(MESSAGES.LOCATION.UNSUPPORTED);
+            this.showLocationError(this.getLocationMessage('UNSUPPORTED'));
             return;
         }
 
-        DEV_TOOLS.log('위치 정보 요청 시작');
+        SafeDevTools.log('위치 정보 요청 시작');
         navigator.geolocation.getCurrentPosition(
             this.onLocationSuccess.bind(this),
             this.onLocationError.bind(this)
@@ -39,15 +68,29 @@ const LocationManager = {
             lng: position.coords.longitude
         };
         
-        DEV_TOOLS.log('위치 정보 획득 성공', userLocation);
+        SafeDevTools.log('위치 정보 획득 성공', userLocation);
         this.updateLocationDisplay(userLocation);
         this.addUserLocationMarker(userLocation);
     },
 
     // 위치 정보 오류 콜백
     onLocationError(error) {
-        DEV_TOOLS.error('위치 정보 오류', error);
-        this.showLocationError(MESSAGES.LOCATION.ERROR);
+        SafeDevTools.error('위치 정보 오류', error);
+        this.showLocationError(this.getLocationMessage('ERROR'));
+    },
+
+    // 안전한 메시지 가져오기
+    getLocationMessage(key) {
+        if (typeof MESSAGES !== 'undefined' && MESSAGES.LOCATION && MESSAGES.LOCATION[key]) {
+            return MESSAGES.LOCATION[key];
+        }
+        // 기본 메시지 제공
+        const defaultMessages = {
+            'UNSUPPORTED': '위치 정보를 지원하지 않는 브라우저입니다.',
+            'ERROR': '위치 정보를 사용할 수 없습니다',
+            'LOADING': '위치 정보를 가져오는 중...'
+        };
+        return defaultMessages[key] || '위치 관련 오류가 발생했습니다.';
     },
 
     // 위치 정보 화면에 표시
@@ -55,39 +98,66 @@ const LocationManager = {
         const locationInfo = document.getElementById('locationInfo');
         const currentLocationSpan = document.getElementById('currentLocation');
         
-        currentLocationSpan.textContent = `위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
-        locationInfo.classList.add('active');
-        DEV_TOOLS.log('위치 정보 UI 업데이트 완료');
+        if (currentLocationSpan) {
+            currentLocationSpan.textContent = `위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+        }
+        if (locationInfo) {
+            locationInfo.classList.add('active');
+        }
+        SafeDevTools.log('위치 정보 UI 업데이트 완료');
     },
 
     // 위치 오류 메시지 표시
     showLocationError(message) {
-        document.getElementById('currentLocation').textContent = message;
-        DEV_TOOLS.warn('위치 오류 메시지 표시', message);
+        const currentLocationSpan = document.getElementById('currentLocation');
+        if (currentLocationSpan) {
+            currentLocationSpan.textContent = message;
+        }
+        SafeDevTools.warn('위치 오류 메시지 표시', message);
     },
 
     // 사용자 위치 마커 추가
     addUserLocationMarker(location) {
         if (!map) {
-            DEV_TOOLS.warn('지도가 아직 초기화되지 않음 - 사용자 위치 마커 대기');
+            SafeDevTools.warn('지도가 아직 초기화되지 않음 - 사용자 위치 마커 대기');
             return;
         }
 
         map.setCenter(location);
         
+        // 안전한 마커 아이콘 가져오기
+        const userIcon = this.getSafeUserLocationIcon();
+        
         const userMarker = new google.maps.Marker({
             position: location,
             map: map,
-            icon: {
-                url: MARKER_ICONS.USER_LOCATION,
-                scaledSize: new google.maps.Size(24, 24),
-                anchor: new google.maps.Point(12, 12)
-            },
+            icon: userIcon,
             title: "내 현재 위치",
             zIndex: 1000
         });
         
-        DEV_TOOLS.log('사용자 위치 마커 생성 완료', location);
+        SafeDevTools.log('사용자 위치 마커 생성 완료', location);
+    },
+
+    // 안전한 사용자 위치 아이콘 가져오기
+    getSafeUserLocationIcon() {
+        if (typeof MARKER_ICONS !== 'undefined' && MARKER_ICONS.USER_LOCATION) {
+            return {
+                url: MARKER_ICONS.USER_LOCATION,
+                scaledSize: new google.maps.Size(24, 24),
+                anchor: new google.maps.Point(12, 12)
+            };
+        } else {
+            // 기본 파란색 점 아이콘
+            return {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: '#4285F4',
+                fillOpacity: 1,
+                strokeColor: 'white',
+                strokeWeight: 2,
+                scale: 8
+            };
+        }
     }
 };
 
@@ -673,158 +743,135 @@ const Utils = {
 };
 
 /* ==========================================================================
-   앱 초기화 및 이벤트 리스너
+   앱 초기화 및 이벤트 리스너 (수정됨)
    ========================================================================== */
 
-// 앱 초기화 함수 (config.js 로드 후 호출됨)
-function initializeApp() {
-    // config.js 로드 확인
-    if (typeof APP_CONFIG === 'undefined' || typeof DEV_TOOLS === 'undefined') {
-        console.error('설정이 로드되지 않았습니다. config.js를 확인해주세요.');
-        return;
+// 안전한 설정 확인 함수
+function checkAppConfig() {
+    if (typeof APP_CONFIG === 'undefined') {
+        console.error('❌ APP_CONFIG가 로드되지 않았습니다.');
+        // 기본 설정 생성
+        window.APP_CONFIG = {
+            DEBUG_MODE: true,
+            MAX_FILE_SIZE: 5 * 1024 * 1024,
+            DEFAULT_LOCATION: { lat: 37.5665, lng: 126.9780 },
+            DEFAULT_ZOOM: 15,
+            APP_NAME: '위치 기반 포토 업로더',
+            APP_VERSION: '1.0.1'
+        };
+        console.log('⚠️ 기본 APP_CONFIG 생성됨');
     }
     
-    DEV_TOOLS.log('앱 초기화 시작');
-    
-    // 전역 함수 노출 (HTML onclick 이벤트용)
-    window.removeFileById = (fileId) => {
-        FileUploader.removeFile(fileId);
-    };
-
-    window.showPhotoFromMarker = (fileName) => {
-        PhotoPopup.showByFileName(fileName);
-    };
-
-    // 모듈들 전역 노출
-    window.TabManager = TabManager;
-    window.MapController = MapController;
-    window.FileUploader = FileUploader;
-    window.PhotoPopup = PhotoPopup;
-
-    // 디버깅 함수들 전역 노출
-    window.debugUploadedFiles = () => {
-        console.log('=== 📊 디버그 정보 ===');
-        console.log('📁 업로드된 파일:', uploadedFiles);
-        console.log('📍 마커 배열:', markers);
-        console.log('⏳ 대기 마커 배열:', pendingMarkers);
-        console.log('🌍 사용자 위치:', userLocation);
-        console.log('🗺️ 지도 객체:', map);
-        console.log('⚙️ 앱 설정:', APP_CONFIG);
-        console.log('==================');
-        
-        // 추가 분석
-        console.log('📊 분석:');
-        console.log(`- 업로드된 파일 수: ${uploadedFiles.length}`);
-        console.log(`- 지도의 마커 수: ${markers.length}`);
-        console.log(`- 대기 중인 마커 수: ${pendingMarkers.length}`);
-        console.log(`- 지도 초기화 상태: ${map ? '완료' : '미완료'}`);
-        console.log(`- 사용자 위치 획득: ${userLocation ? '완료' : '미완료'}`);
-        
-        // Google Maps API 상태
-        console.log(`- Google Maps API: ${typeof google !== 'undefined' ? '로드됨' : '미로드'}`);
-    };
-
-    window.enableDebugMode = () => {
-        APP_CONFIG.DEBUG_MODE = true;
-        console.log('🔧 디버그 모드가 활성화되었습니다.');
-        console.log('상세한 로그를 확인하려면 debugUploadedFiles()를 실행하세요.');
-    };
-
-    window.disableDebugMode = () => {
-        APP_CONFIG.DEBUG_MODE = false;
-        console.log('🔧 디버그 모드가 비활성화되었습니다.');
-    };
-
-    window.clearAllFiles = () => {
-        if (confirm('모든 업로드된 파일을 삭제하시겠습니까?')) {
-            // 모든 마커 제거
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
-            
-            // 대기 마커 초기화
-            pendingMarkers = [];
-            
-            // 파일 데이터 초기화
-            uploadedFiles = [];
-            
-            // 미리보기 영역 초기화
-            document.getElementById('previewArea').innerHTML = '';
-            
-            DEV_TOOLS.log('모든 파일이 삭제되었습니다');
-            console.log('✅ 모든 파일이 삭제되었습니다.');
-        }
-    };
-
-    window.forceMapInit = () => {
-        if (typeof google !== 'undefined' && google.maps) {
-            MapController.init();
-            console.log('🗺️ 지도를 강제로 초기화했습니다.');
-        } else {
-            console.error('❌ Google Maps API가 로드되지 않았습니다.');
-        }
-    };
-
-    window.testMarkerCreation = () => {
-        if (!userLocation) {
-            console.error('❌ 사용자 위치가 없습니다. 위치 권한을 허용해주세요.');
-            return;
-        }
-        
-        // 테스트용 가상 파일
-        const testFile = {
-            name: 'test-photo.jpg',
-            size: 1024 * 1024 // 1MB
+    if (typeof DEV_TOOLS === 'undefined') {
+        console.error('❌ DEV_TOOLS가 로드되지 않았습니다.');
+        // 기본 DEV_TOOLS 생성
+        window.DEV_TOOLS = {
+            log: (msg, data) => console.log(`[LOG] ${msg}`, data || ''),
+            error: (msg, error) => console.error(`[ERROR] ${msg}`, error || ''),
+            warn: (msg, data) => console.warn(`[WARN] ${msg}`, data || ''),
+            isReady: () => true
         };
-        
-        const testLocation = {
-            lat: userLocation.lat + 0.001,
-            lng: userLocation.lng + 0.001
-        };
-        
-        console.log('🧪 테스트 마커 생성 중...', testLocation);
-        MapController.addPhotoMarker(testFile, testLocation);
-        console.log('✅ 테스트 마커 생성 완료');
-    };
-
-    // 개발자 콘솔 도우미 메시지
-    console.log(`
-🚀 ${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION}
-
-📋 사용 가능한 디버그 명령어:
-• debugUploadedFiles() - 현재 상태 확인
-• enableDebugMode() - 디버그 모드 활성화  
-• disableDebugMode() - 디버그 모드 비활성화
-• clearAllFiles() - 모든 파일 삭제
-• forceMapInit() - 지도 강제 초기화
-• testMarkerCreation() - 테스트 마커 생성
-
-🔧 개발자 정보:
-• GitHub: keungkeung
-• 배포: Vercel
-    `);
+        console.log('⚠️ 기본 DEV_TOOLS 생성됨');
+    }
     
-    LocationManager.getCurrentLocation();
-    FileUploader.init();
-    DEV_TOOLS.log(`${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 초기화 완료`);
+    if (typeof MESSAGES === 'undefined') {
+        console.error('❌ MESSAGES가 로드되지 않았습니다.');
+        // 기본 메시지 생성
+        window.MESSAGES = {
+            LOCATION: {
+                LOADING: '위치 정보를 가져오는 중...',
+                ERROR: '위치 정보를 사용할 수 없습니다',
+                UNSUPPORTED: '위치 정보를 지원하지 않는 브라우저입니다.'
+            },
+            UPLOAD: {
+                SUCCESS: '✅ 사진이 성공적으로 업로드되었습니다!',
+                INVALID_TYPE: '은(는) 이미지 파일이 아닙니다.',
+                TOO_LARGE: '의 크기가 5MB를 초과합니다.',
+                UPLOADING: '업로드 중...'
+            }
+        };
+        console.log('⚠️ 기본 MESSAGES 생성됨');
+    }
 }
 
-// DOM이 이미 로드되었다면 즉시 초기화, 아니면 대기
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-    // config.js가 로드되었는지 확인 후 초기화
-    if (typeof APP_CONFIG !== 'undefined') {
-        initializeApp();
+// 앱 초기화 함수 (수정됨 - 682번째 줄 근처)
+function initializeApp() {
+    // 설정 확인 및 기본값 생성
+    checkAppConfig();
+    
+    SafeDevTools.log('앱 초기화 시작');
+    
+    try {
+        // 전역 함수 노출 (HTML onclick 이벤트용)
+        window.removeFileById = (fileId) => {
+            if (typeof FileUploader !== 'undefined') {
+                FileUploader.removeFile(fileId);
+            } else {
+                SafeDevTools.error('FileUploader가 로드되지 않음');
+            }
+        };
+
+        window.showPhotoFromMarker = (fileName) => {
+            if (typeof PhotoPopup !== 'undefined') {
+                PhotoPopup.showByFileName(fileName);
+            } else {
+                SafeDevTools.error('PhotoPopup이 로드되지 않음');
+            }
+        };
+
+        // 모듈들 전역 노출 (나중에 정의될 예정)
+        if (typeof TabManager !== 'undefined') window.TabManager = TabManager;
+        if (typeof MapController !== 'undefined') window.MapController = MapController;
+        if (typeof FileUploader !== 'undefined') window.FileUploader = FileUploader;
+        if (typeof PhotoPopup !== 'undefined') window.PhotoPopup = PhotoPopup;
+
+        // 초기화 완료 후 LocationManager 시작
+        LocationManager.getCurrentLocation();
+        
+        SafeDevTools.log(`${APP_CONFIG.APP_NAME} v${APP_CONFIG.APP_VERSION} 초기화 완료`);
+        
+    } catch (error) {
+        SafeDevTools.error('앱 초기화 중 오류 발생', error);
+    }
+}
+
+// DOM 로드 확인 및 초기화 (수정됨 - 817번째 줄 근처)
+function startApp() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeApp);
     } else {
-        // config.js 로드 대기
-        let configCheckInterval = setInterval(() => {
-            if (typeof APP_CONFIG !== 'undefined') {
+        // config.js 로드 확인
+        let configCheckCount = 0;
+        const maxConfigChecks = 50; // 5초 대기
+        
+        const configCheckInterval = setInterval(() => {
+            configCheckCount++;
+            
+            if (typeof APP_CONFIG !== 'undefined' || configCheckCount >= maxConfigChecks) {
                 clearInterval(configCheckInterval);
+                
+                if (configCheckCount >= maxConfigChecks) {
+                    console.warn('⚠️ config.js 로드 대기 시간 초과 - 기본 설정으로 시작');
+                }
+                
                 initializeApp();
             }
-        }, 50);
+        }, 100);
     }
 }
+
+// 전역 에러 핸들러
+window.addEventListener('error', function(event) {
+    SafeDevTools.error('전역 에러 발생', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+    });
+});
+
+// 앱 시작
+startApp();
 
 // ESC 키로 팝업 닫기
 document.addEventListener('keydown', (e) => {
