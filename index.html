@@ -630,12 +630,22 @@
             const title = document.getElementById('popupTitle');
             const locationText = document.getElementById('popupLocation');
 
+            // DOM 요소 존재 확인
+            if (!popup || !image || !title || !locationText) {
+                console.error('팝업 요소를 찾을 수 없습니다.');
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                image.src = e.target.result;
-                title.textContent = file.name;
-                locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
-                popup.style.display = 'block';
+                try {
+                    image.src = e.target.result;
+                    title.textContent = file.name;
+                    locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
+                    popup.style.display = 'block';
+                } catch (error) {
+                    console.error('팝업 표시 중 오류:', error);
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -644,15 +654,8 @@
             document.getElementById('photoPopup').style.display = 'none';
         }
 
-        // 파일 업로드 관련
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const cameraInput = document.getElementById('cameraInput');
-        const previewArea = document.getElementById('previewArea');
-        const uploadProgress = document.getElementById('uploadProgress');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        const successMessage = document.getElementById('successMessage');
+        // 파일 업로드 관련 변수들 (전역으로 선언하되 이벤트는 DOMContentLoaded에서 등록)
+        let uploadArea, fileInput, cameraInput, previewArea, uploadProgress, progressFill, progressText, successMessage;
 
         // 드래그 앤 드롭 이벤트
         uploadArea.addEventListener('dragover', (e) => {
@@ -720,6 +723,11 @@
         }
 
         function simulateUpload(files) {
+            if (!uploadProgress || !progressFill || !progressText) {
+                console.error('업로드 진행률 요소를 찾을 수 없습니다.');
+                return;
+            }
+
             uploadProgress.style.display = 'block';
             let progress = 0;
             
@@ -752,12 +760,21 @@
                 uploadedFiles.push({ id: fileId, file, location });
                 
                 // 지도에 마커 추가
-                addPhotoMarker(file, location);
+                if (map) {
+                    addPhotoMarker(file, location);
+                }
                 
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    const previewItem = createPreviewItem(fileId, file, location, e.target.result);
-                    previewArea.appendChild(previewItem);
+                    try {
+                        const previewItem = createPreviewItem(fileId, file, location, e.target.result);
+                        const previewArea = document.getElementById('previewArea');
+                        if (previewArea) {
+                            previewArea.appendChild(previewItem);
+                        }
+                    } catch (error) {
+                        console.error('미리보기 생성 중 오류:', error);
+                    }
                 };
                 reader.readAsDataURL(file);
             });
@@ -811,15 +828,65 @@
         }
 
         function showSuccessMessage() {
-            successMessage.style.display = 'block';
-            setTimeout(() => {
-                successMessage.style.display = 'none';
-            }, 3000);
+            if (successMessage) {
+                successMessage.style.display = 'block';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 3000);
+            }
         }
 
         // 페이지 로드 시 위치 정보 요청
         window.addEventListener('load', () => {
             getCurrentLocation();
+        });
+
+        // DOM이 완전히 로드된 후 이벤트 리스너 등록
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM 요소들 초기화
+            uploadArea = document.getElementById('uploadArea');
+            fileInput = document.getElementById('fileInput');
+            cameraInput = document.getElementById('cameraInput');
+            previewArea = document.getElementById('previewArea');
+            uploadProgress = document.getElementById('uploadProgress');
+            progressFill = document.getElementById('progressFill');
+            progressText = document.getElementById('progressText');
+            successMessage = document.getElementById('successMessage');
+
+            if (uploadArea && fileInput && cameraInput) {
+                // 드래그 앤 드롭 이벤트
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    const files = Array.from(e.dataTransfer.files);
+                    handleFiles(files);
+                });
+
+                uploadArea.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('btn')) {
+                        fileInput.click();
+                    }
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files);
+                    handleFiles(files);
+                });
+
+                cameraInput.addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files);
+                    handleFiles(files);
+                });
+            }
         });
     </script>
 </body>
