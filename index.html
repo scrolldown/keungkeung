@@ -631,12 +631,13 @@
 
         // Firebase 프로젝트 설정 - 실제 Firebase Console에서 복사한 값으로 교체
         const firebaseConfig = {
-            apiKey: "실제_API_키_여기_입력",
-            authDomain: "프로젝트ID.firebaseapp.com",
-            projectId: "프로젝트_ID_여기_입력",
-            storageBucket: "프로젝트ID.appspot.com",
-            messagingSenderId: "실제_숫자_여기_입력",
-            appId: "실제_앱ID_여기_입력"
+          apiKey: "AIzaSyAQqqzYXlV-b4ArDaMsPMJTvBf4LREuKaY",
+          authDomain: "keungkeung-bc128.firebaseapp.com",
+          projectId: "keungkeung-bc128",
+          storageBucket: "keungkeung-bc128.firebasestorage.app",
+          messagingSenderId: "50954588097",
+          appId: "1:50954588097:web:1dad4903ce8bf78489a940",
+          measurementId: "G-QYXQ81H8FJ"
         };
 
         // Firebase 설정 확인
@@ -650,39 +651,6 @@
 
         console.log('Firebase 앱 초기화 완료:', app);
         console.log('Auth 객체:', auth);
-        console.log('Firestore 객체:', db);
-        console.log('Storage 객체:', storage);
-
-        // Firebase 서비스 연결 테스트 - 단순한 쿼리로 수정
-        async function testFirebaseConnection() {
-            try {
-                // Firestore 연결 테스트 - 단순한 쿼리 사용
-                console.log('Firestore 연결 테스트 중...');
-                const testQuery = query(collection(db, 'photos'), orderBy('uploadTime', 'desc'));
-                const testSnapshot = await getDocs(testQuery);
-                console.log('✅ Firestore 연결 성공, 문서 수:', testSnapshot.size);
-                
-                // Storage 연결 테스트  
-                console.log('Storage 연결 테스트 중...');
-                const storageRef = ref(storage, 'test/connection-test.txt');
-                console.log('✅ Storage 연결 성공');
-                
-            } catch (error) {
-                console.error('❌ Firebase 연결 실패:', error);
-                console.error('에러 코드:', error.code);
-                console.error('에러 메시지:', error.message);
-                
-                // Firestore 인덱스 에러인 경우 안내
-                if (error.code === 'failed-precondition' && error.message.includes('index')) {
-                    console.log('💡 해결 방법: Firestore 인덱스가 생성될 때까지 잠시 기다려주세요.');
-                    console.log('또는 다음 링크에서 인덱스를 수동으로 생성할 수 있습니다:');
-                    console.log(error.message.match(/https:\/\/[^\s]+/)?.[0]);
-                }
-            }
-        }
-
-        // 페이지 로드 시 연결 테스트
-        testFirebaseConnection();
 
         // Firebase 연결 상태 확인
         auth.onAuthStateChanged((user) => {
@@ -845,79 +813,31 @@
             }
         };
 
-        // 실시간 사진 로딩 - 지도 상태 확인 추가
+        // 실시간 사진 로딩
         function loadPhotosRealtime() {
-            if (!window.currentUser) {
-                console.log('사용자가 로그인하지 않음, 사진 로딩 중단');
-                return;
-            }
-
             if (photosUnsubscribe) {
                 photosUnsubscribe();
             }
 
-            let q;
+            let q = query(collection(db, 'photos'), orderBy('uploadTime', 'desc'));
             
             if (window.currentFilter === 'mine') {
-                // 내 사진만: userId로 필터링하고 시간순 정렬
-                q = query(
-                    collection(db, 'photos'), 
-                    where('userId', '==', window.currentUser.uid),
-                    orderBy('uploadTime', 'desc')
-                );
+                q = query(collection(db, 'photos'), 
+                    where('userId', '==', window.currentUser.uid), 
+                    orderBy('uploadTime', 'desc'));
             } else if (window.currentFilter === 'others') {
-                // 다른 사용자 사진: 모든 사진을 가져온 후 클라이언트에서 필터링
-                q = query(
-                    collection(db, 'photos'), 
-                    orderBy('uploadTime', 'desc')
-                );
-            } else {
-                // 전체 보기: 시간순으로만 정렬
-                q = query(
-                    collection(db, 'photos'), 
-                    orderBy('uploadTime', 'desc')
-                );
+                q = query(collection(db, 'photos'), 
+                    where('userId', '!=', window.currentUser.uid), 
+                    orderBy('uploadTime', 'desc'));
             }
 
-            console.log('Firestore 쿼리 실행 중... 필터:', window.currentFilter);
-
             photosUnsubscribe = onSnapshot(q, (snapshot) => {
-                console.log('Firestore 응답 받음, 문서 수:', snapshot.size);
-                
                 clearMap();
-                let filteredCount = 0;
-                
                 snapshot.forEach((doc) => {
                     const photoData = { id: doc.id, ...doc.data() };
-                    
-                    // 클라이언트 사이드 필터링 (others 필터용)
-                    if (window.currentFilter === 'others' && photoData.userId === window.currentUser.uid) {
-                        return; // 내 사진은 제외
-                    }
-                    
-                    // 지도가 준비되지 않은 경우 잠시 대기
-                    if (!window.map) {
-                        console.log('지도가 준비되지 않음, 마커 추가 대기 중...');
-                        setTimeout(() => {
-                            if (window.map) {
-                                addPhotoToMap(photoData);
-                            }
-                        }, 1000);
-                    } else {
-                        addPhotoToMap(photoData);
-                    }
-                    
-                    filteredCount++;
+                    addPhotoToMap(photoData);
                 });
-                
-                console.log(`${filteredCount}개의 사진을 지도에 표시했습니다.`);
-            }, (error) => {
-                console.error('❌ Firestore 실시간 리스너 오류:', error);
-                console.error('에러 코드:', error.code);
-                console.error('에러 메시지:', error.message);
-                
-                // 사용자에게 친화적인 메시지
-                alert('사진을 불러오는 중 오류가 발생했습니다. 페이지를 새로고침해보세요.');
+                console.log(`${snapshot.size}개의 사진을 로드했습니다.`);
             });
         }
 
@@ -941,76 +861,30 @@
         // 기존 Google Maps 및 UI 코드는 여기에 유지
         // (이전 코드와 동일하게 유지하되, Firebase 관련 부분만 수정)
 
-        // Google Maps 초기화 - 안전한 DOM 접근
+        // Google Maps 초기화
         function initMap() {
-            console.log('initMap 호출됨');
-            
-            // DOM 요소 존재 확인
-            const mapLoading = document.getElementById('mapLoading');
-            const mapControls = document.getElementById('mapControls');
-            const mapElement = document.getElementById('map');
-            
-            console.log('DOM 요소 확인:', { mapLoading, mapControls, mapElement });
-            
-            if (mapLoading) {
-                mapLoading.style.display = 'none';
-            } else {
-                console.warn('mapLoading 요소를 찾을 수 없습니다.');
-            }
-            
-            if (mapControls) {
-                mapControls.style.display = 'flex';
-            } else {
-                console.warn('mapControls 요소를 찾을 수 없습니다.');
-            }
-            
-            if (!mapElement) {
-                console.error('map 요소를 찾을 수 없습니다. initMap 실행을 중단합니다.');
-                return;
-            }
+            document.getElementById('mapLoading').style.display = 'none';
+            document.getElementById('mapControls').style.display = 'flex';
 
             const defaultLocation = { lat: 37.5665, lng: 126.9780 };
             
-            try {
-                window.map = new google.maps.Map(mapElement, {
-                    zoom: 15,
-                    center: defaultLocation,
-                    mapTypeControl: false,
-                    fullscreenControl: false,
-                    streetViewControl: false,
-                    styles: [
-                        {
-                            featureType: "poi",
-                            elementType: "labels",
-                            stylers: [{ visibility: "off" }]
-                        }
-                    ]
-                });
-                
-                console.log('✅ Google Maps 초기화 성공');
-                getCurrentLocation();
-                
-                // 로그인된 사용자가 있으면 사진 로드
-                if (window.currentUser) {
-                    loadPhotosRealtime();
-                }
-                
-            } catch (error) {
-                console.error('❌ Google Maps 초기화 실패:', error);
-            }
-        }
+            window.map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: defaultLocation,
+                mapTypeControl: false,
+                fullscreenControl: false,
+                streetViewControl: false,
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]
+                    }
+                ]
+            });
 
-        // 안전한 initMap 호출을 위한 래퍼 함수
-        window.initMap = function() {
-            // DOM이 준비되었는지 확인
-            if (document.readyState === 'loading') {
-                console.log('DOM 로딩 중... initMap 지연');
-                document.addEventListener('DOMContentLoaded', initMap);
-            } else {
-                console.log('DOM 준비됨, initMap 실행');
-                initMap();
-            }
-        };
+            getCurrentLocation();
+        }
 
         // 현재 위치 가져오기
         function getCurrentLocation() {
@@ -1060,7 +934,7 @@
             locationInfo.classList.add('active');
         }
 
-        // 탭 전환 - 안전한 DOM 접근
+        // 탭 전환
         function showTab(tabName) {
             console.log('탭 전환:', tabName);
             
@@ -1076,27 +950,12 @@
             if (targetTab) targetTab.classList.add('active');
             if (targetContent) targetContent.classList.add('active');
             
-            // 지도 탭으로 전환 시 지도 초기화
-            if (tabName === 'map') {
-                console.log('지도 탭 활성화');
-                if (!window.map) {
-                    console.log('지도가 없음, 초기화 시도');
-                    // DOM이 준비될 시간을 충분히 줌
-                    setTimeout(() => {
-                        if (typeof google !== 'undefined' && google.maps) {
-                            console.log('Google Maps API 준비됨, 지도 초기화');
-                            initMap();
-                        } else {
-                            console.error('Google Maps API가 로드되지 않았습니다.');
-                        }
-                    }, 500); // 500ms 대기
-                } else {
-                    console.log('지도가 이미 존재함');
-                    // 기존 사진들 다시 로드
-                    if (window.currentUser) {
-                        loadPhotosRealtime();
+            if (tabName === 'map' && !window.map) {
+                setTimeout(() => {
+                    if (typeof google !== 'undefined' && google.maps) {
+                        initMap();
                     }
-                }
+                }, 100);
             }
         }
 
@@ -1249,49 +1108,33 @@
             // 전역 변수에서 currentUser 가져오기
             const user = window.currentUser;
             
-            console.log('업로드 시작 - 사용자:', user?.displayName);
-            console.log('업로드 시작 - 위치:', window.userLocation);
-            console.log('업로드 시작 - 파일 수:', files.length);
-            
             if (uploadProgress) uploadProgress.style.display = 'block';
 
             try {
                 for (const file of files) {
-                    console.log('파일 업로드 시작:', file.name, 'Size:', file.size);
-                    
-                    // Storage 경로 확인
-                    const storagePath = `photos/${user.uid}/${Date.now()}-${file.name}`;
-                    console.log('Storage 경로:', storagePath);
+                    console.log('파일 업로드 시작:', file.name);
                     
                     // Storage에 파일 업로드
-                    const storageRef = ref(storage, storagePath);
-                    console.log('Storage 참조 생성:', storageRef);
-                    
+                    const storageRef = ref(storage, `photos/${user.uid}/${Date.now()}-${file.name}`);
                     const uploadTask = uploadBytesResumable(storageRef, file);
-                    console.log('업로드 태스크 시작:', uploadTask);
                     
                     await new Promise((resolve, reject) => {
                         uploadTask.on('state_changed', 
                             (snapshot) => {
                                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                                console.log('업로드 진행률:', Math.round(progress) + '%');
                                 if (progressFill) progressFill.style.width = progress + '%';
                                 if (progressText) progressText.textContent = `업로드 중... ${Math.round(progress)}%`;
                             },
                             (error) => {
-                                console.error('❌ Storage 업로드 실패:', error);
-                                console.error('에러 코드:', error.code);
-                                console.error('에러 메시지:', error.message);
+                                console.error('업로드 실패:', error);
                                 reject(error);
                             },
                             async () => {
                                 try {
-                                    console.log('✅ Storage 업로드 완료, URL 가져오는 중...');
                                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                                    console.log('✅ 다운로드 URL 획득:', downloadURL);
                                     
                                     // Firestore에 메타데이터 저장
-                                    const photoData = {
+                                    await addDoc(collection(db, 'photos'), {
                                         userId: user.uid,
                                         userName: user.displayName,
                                         userPhoto: user.photoURL,
@@ -1305,18 +1148,12 @@
                                         description: `${file.name}`,
                                         uploadTime: serverTimestamp(),
                                         visibility: 'public'
-                                    };
+                                    });
                                     
-                                    console.log('Firestore에 저장할 데이터:', photoData);
-                                    
-                                    const docRef = await addDoc(collection(db, 'photos'), photoData);
-                                    console.log('✅ Firestore 저장 완료, 문서 ID:', docRef.id);
-                                    
+                                    console.log('파일 업로드 완료:', file.name);
                                     resolve();
                                 } catch (error) {
-                                    console.error('❌ Firestore 저장 실패:', error);
-                                    console.error('에러 코드:', error.code);
-                                    console.error('에러 메시지:', error.message);
+                                    console.error('메타데이터 저장 실패:', error);
                                     reject(error);
                                 }
                             }
@@ -1327,22 +1164,10 @@
                 // 업로드 완료
                 if (uploadProgress) uploadProgress.style.display = 'none';
                 showSuccessMessage();
-                console.log('🎉 모든 파일 업로드 완료!');
                 
             } catch (error) {
-                console.error('❌ 업로드 중 전체 오류:', error);
-                
-                // 구체적인 에러 메시지 제공
-                let errorMessage = '업로드 중 오류가 발생했습니다.';
-                if (error.code === 'storage/unauthorized') {
-                    errorMessage = 'Storage 접근 권한이 없습니다. 관리자에게 문의하세요.';
-                } else if (error.code === 'permission-denied') {
-                    errorMessage = 'Firestore 접근 권한이 없습니다. 관리자에게 문의하세요.';
-                } else if (error.code === 'storage/retry-limit-exceeded') {
-                    errorMessage = '네트워크 문제로 업로드에 실패했습니다. 다시 시도해주세요.';
-                }
-                
-                alert(errorMessage + '\n\n상세 오류: ' + error.message);
+                console.error('업로드 중 오류:', error);
+                alert('업로드 중 오류가 발생했습니다: ' + error.message);
                 if (uploadProgress) uploadProgress.style.display = 'none';
             }
         }
