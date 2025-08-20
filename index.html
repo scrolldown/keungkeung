@@ -706,8 +706,8 @@
             }
         }
 
-        // 파일 업로드 관련 변수들 (전역으로 선언하되 이벤트는 DOMContentLoaded에서 등록)
-        let uploadArea, fileInput, cameraInput, previewArea, uploadProgress, progressFill, progressText, successMessage;
+        // 파일 업로드 관련 변수들 (더 이상 전역으로 선언하지 않음)
+        // DOM 요소들은 필요할 때마다 getElementById로 가져옴
 
         // 드래그 앤 드롭 이벤트
         uploadArea.addEventListener('dragover', (e) => {
@@ -743,15 +743,32 @@
         });
 
         function openCamera() {
-            cameraInput.click();
+            console.log('openCamera 호출됨'); // 디버깅용
+            const cameraInput = document.getElementById('cameraInput');
+            if (cameraInput) {
+                cameraInput.click();
+                console.log('카메라 입력 클릭됨');
+            } else {
+                console.error('cameraInput 요소를 찾을 수 없습니다.');
+            }
         }
 
         function openGallery() {
-            fileInput.click();
+            console.log('openGallery 호출됨'); // 디버깅용
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) {
+                fileInput.click();
+                console.log('파일 입력 클릭됨');
+            } else {
+                console.error('fileInput 요소를 찾을 수 없습니다.');
+            }
         }
 
         function handleFiles(files) {
+            console.log('handleFiles 호출됨, 파일 수:', files.length); // 디버깅용
+            
             if (!userLocation) {
+                console.log('위치 정보가 없음, 위치 요청 중...'); // 디버깅용
                 getCurrentLocation();
                 setTimeout(() => handleFiles(files), 1000);
                 return;
@@ -769,14 +786,25 @@
                 return true;
             });
 
+            console.log('유효한 파일 수:', validFiles.length); // 디버깅용
+
             if (validFiles.length > 0) {
                 simulateUpload(validFiles);
             }
         }
 
         function simulateUpload(files) {
+            console.log('simulateUpload 호출됨'); // 디버깅용
+            
+            const uploadProgress = document.getElementById('uploadProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
             if (!uploadProgress || !progressFill || !progressText) {
                 console.error('업로드 진행률 요소를 찾을 수 없습니다.');
+                // 요소가 없어도 파일 처리는 계속 진행
+                addFilesToPreview(files);
+                showSuccessMessage();
                 return;
             }
 
@@ -850,23 +878,31 @@
         }
 
         function removeFile(fileId) {
+            console.log('removeFile 호출됨:', fileId); // 디버깅용
+            
             const fileIndex = uploadedFiles.findIndex(f => f.id === fileId);
             if (fileIndex !== -1) {
                 // 마커 제거
                 if (markers[fileIndex]) {
                     markers[fileIndex].setMap(null);
                     markers.splice(fileIndex, 1);
+                    console.log('마커 제거됨'); // 디버깅용
                 }
                 
                 uploadedFiles.splice(fileIndex, 1);
+                console.log('파일 배열에서 제거됨'); // 디버깅용
             }
             
-            const previewItems = previewArea.children;
-            for (let i = 0; i < previewItems.length; i++) {
-                const removeBtn = previewItems[i].querySelector('.remove-btn');
-                if (removeBtn.getAttribute('onclick').includes(fileId)) {
-                    previewItems[i].remove();
-                    break;
+            const previewArea = document.getElementById('previewArea');
+            if (previewArea) {
+                const previewItems = previewArea.children;
+                for (let i = 0; i < previewItems.length; i++) {
+                    const removeBtn = previewItems[i].querySelector('.remove-btn');
+                    if (removeBtn && removeBtn.getAttribute('onclick').includes(fileId)) {
+                        previewItems[i].remove();
+                        console.log('미리보기 아이템 제거됨'); // 디버깅용
+                        break;
+                    }
                 }
             }
         }
@@ -880,11 +916,16 @@
         }
 
         function showSuccessMessage() {
+            console.log('showSuccessMessage 호출됨'); // 디버깅용
+            const successMessage = document.getElementById('successMessage');
             if (successMessage) {
                 successMessage.style.display = 'block';
                 setTimeout(() => {
                     successMessage.style.display = 'none';
                 }, 3000);
+                console.log('성공 메시지 표시됨'); // 디버깅용
+            } else {
+                console.error('successMessage 요소를 찾을 수 없습니다.');
             }
         }
 
@@ -895,17 +936,19 @@
 
         // DOM이 완전히 로드된 후 이벤트 리스너 등록
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 로드 완료'); // 디버깅용
+            
             // DOM 요소들 초기화
-            uploadArea = document.getElementById('uploadArea');
-            fileInput = document.getElementById('fileInput');
-            cameraInput = document.getElementById('cameraInput');
-            previewArea = document.getElementById('previewArea');
-            uploadProgress = document.getElementById('uploadProgress');
-            progressFill = document.getElementById('progressFill');
-            progressText = document.getElementById('progressText');
-            successMessage = document.getElementById('successMessage');
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const cameraInput = document.getElementById('cameraInput');
+            const previewArea = document.getElementById('previewArea');
+
+            console.log('DOM 요소들 확인:', { uploadArea, fileInput, cameraInput, previewArea }); // 디버깅용
 
             if (uploadArea && fileInput && cameraInput) {
+                console.log('이벤트 리스너 등록 중...'); // 디버깅용
+                
                 // 드래그 앤 드롭 이벤트
                 uploadArea.addEventListener('dragover', (e) => {
                     e.preventDefault();
@@ -920,24 +963,32 @@
                     e.preventDefault();
                     uploadArea.classList.remove('dragover');
                     const files = Array.from(e.dataTransfer.files);
+                    console.log('드롭된 파일들:', files); // 디버깅용
                     handleFiles(files);
                 });
 
                 uploadArea.addEventListener('click', (e) => {
                     if (!e.target.classList.contains('btn')) {
+                        console.log('업로드 영역 클릭됨'); // 디버깅용
                         fileInput.click();
                     }
                 });
 
                 fileInput.addEventListener('change', (e) => {
                     const files = Array.from(e.target.files);
+                    console.log('파일 입력 변경됨:', files); // 디버깅용
                     handleFiles(files);
                 });
 
                 cameraInput.addEventListener('change', (e) => {
                     const files = Array.from(e.target.files);
+                    console.log('카메라 입력 변경됨:', files); // 디버깅용
                     handleFiles(files);
                 });
+                
+                console.log('모든 이벤트 리스너 등록 완료'); // 디버깅용
+            } else {
+                console.error('필수 DOM 요소를 찾을 수 없습니다:', { uploadArea, fileInput, cameraInput });
             }
         });
     </script>
