@@ -630,7 +630,6 @@
         import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
         // Firebase 프로젝트 설정 - 실제 Firebase Console에서 복사한 값으로 교체
-
         const firebaseConfig = {
           apiKey: "AIzaSyAQqqzYXlV-b4ArDaMsPMJTvBf4LREuKaY",
           authDomain: "keungkeung-bc128.firebaseapp.com",
@@ -640,12 +639,23 @@
           appId: "1:50954588097:web:1dad4903ce8bf78489a940",
           measurementId: "G-QYXQ81H8FJ"
         };
-        
+
+        // Firebase 설정 확인
+        console.log('Firebase 설정:', firebaseConfig);
+
         // Firebase 초기화
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
+
+        console.log('Firebase 앱 초기화 완료:', app);
+        console.log('Auth 객체:', auth);
+
+        // Firebase 연결 상태 확인
+        auth.onAuthStateChanged((user) => {
+            console.log('Auth 상태 변경:', user ? '로그인됨' : '로그아웃됨');
+        });
 
         // 전역 변수들
         window.auth = auth;
@@ -671,14 +681,28 @@
         window.getDownloadURL = getDownloadURL;
         window.deleteObject = deleteObject;
 
-        // 사용자 상태 관리
+        // 사용자 상태 관리 전역 변수
         let currentUser = null;
         let currentFilter = 'all';
         let photosUnsubscribe = null;
+        let uploadedFiles = [];
+        let map = null;
+        let userLocation = null;
+        let markers = [];
+
+        // 전역으로 내보내기
+        window.currentUser = currentUser;
+        window.currentFilter = currentFilter;
+        window.photosUnsubscribe = photosUnsubscribe;
+        window.uploadedFiles = uploadedFiles;
+        window.map = map;
+        window.userLocation = userLocation;
+        window.markers = markers;
 
         // 인증 상태 변화 감지
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
+            window.currentUser = user; // 전역 변수 업데이트
             updateAuthUI(user);
             if (user) {
                 console.log('사용자 로그인:', user.displayName);
@@ -718,13 +742,52 @@
 
         // 전역 함수들을 window에 할당
         window.signInWithGoogle = async function() {
+            console.log('Google 로그인 시도 중...');
+            
+            // Auth 객체 상태 확인
+            console.log('Auth 설정:', auth.config);
+            
             const provider = new GoogleAuthProvider();
+            provider.addScope('profile');
+            provider.addScope('email');
+            
             try {
+                console.log('signInWithPopup 호출...');
                 const result = await signInWithPopup(auth, provider);
                 console.log('로그인 성공:', result.user.displayName);
+                console.log('사용자 정보:', {
+                    uid: result.user.uid,
+                    name: result.user.displayName,
+                    email: result.user.email
+                });
             } catch (error) {
-                console.error('로그인 실패:', error);
-                alert('로그인에 실패했습니다: ' + error.message);
+                console.error('로그인 실패 상세 정보:', {
+                    code: error.code,
+                    message: error.message,
+                    customData: error.customData,
+                    operationType: error.operationType
+                });
+                
+                // 사용자 친화적인 에러 메시지
+                let friendlyMessage = '';
+                switch(error.code) {
+                    case 'auth/configuration-not-found':
+                        friendlyMessage = 'Firebase Authentication이 설정되지 않았습니다. 관리자에게 문의하세요.';
+                        break;
+                    case 'auth/popup-closed-by-user':
+                        friendlyMessage = '로그인이 취소되었습니다.';
+                        break;
+                    case 'auth/popup-blocked':
+                        friendlyMessage = '팝업이 차단되었습니다. 팝업을 허용해주세요.';
+                        break;
+                    case 'auth/network-request-failed':
+                        friendlyMessage = '네트워크 오류가 발생했습니다.';
+                        break;
+                    default:
+                        friendlyMessage = `로그인 실패: ${error.message}`;
+                }
+                
+                alert(friendlyMessage);
             }
         };
 
@@ -739,12 +802,13 @@
 
         window.setPhotoFilter = function(filter) {
             currentFilter = filter;
+            window.currentFilter = filter; // 전역 변수 업데이트
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
             
-            if (currentUser) {
+            if (window.currentUser) {
                 loadPhotosRealtime();
             }
         };
@@ -757,13 +821,13 @@
 
             let q = query(collection(db, 'photos'), orderBy('uploadTime', 'desc'));
             
-            if (currentFilter === 'mine') {
+            if (window.currentFilter === 'mine') {
                 q = query(collection(db, 'photos'), 
-                    where('userId', '==', currentUser.uid), 
+                    where('userId', '==', window.currentUser.uid), 
                     orderBy('uploadTime', 'desc'));
-            } else if (currentFilter === 'others') {
+            } else if (window.currentFilter === 'others') {
                 q = query(collection(db, 'photos'), 
-                    where('userId', '!=', currentUser.uid), 
+                    where('userId', '!=', window.currentUser.uid), 
                     orderBy('uploadTime', 'desc'));
             }
 
@@ -778,7 +842,7 @@
         }
 
         window.refreshPhotos = function() {
-            if (currentUser) {
+            if (window.currentUser) {
                 loadPhotosRealtime();
             }
         };
@@ -804,7 +868,7 @@
 
             const defaultLocation = { lat: 37.5665, lng: 126.9780 };
             
-            map = new google.maps.Map(document.getElementById('map'), {
+            window.map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 15,
                 center: defaultLocation,
                 mapTypeControl: false,
@@ -886,7 +950,7 @@
             if (targetTab) targetTab.classList.add('active');
             if (targetContent) targetContent.classList.add('active');
             
-            if (tabName === 'map' && !map) {
+            if (tabName === 'map' && !window.map) {
                 setTimeout(() => {
                     if (typeof google !== 'undefined' && google.maps) {
                         initMap();
@@ -897,35 +961,37 @@
 
         // 지도 제어
         function centerMap() {
-            if (map && userLocation) {
-                map.setCenter(userLocation);
-                map.setZoom(15);
+            if (window.map && window.userLocation) {
+                window.map.setCenter(window.userLocation);
+                window.map.setZoom(15);
             }
         }
 
         function showAllPhotos() {
-            if (map && markers.length > 0) {
+            if (window.map && window.markers.length > 0) {
                 const bounds = new google.maps.LatLngBounds();
-                markers.forEach(marker => bounds.extend(marker.getPosition()));
-                map.fitBounds(bounds);
+                window.markers.forEach(marker => bounds.extend(marker.getPosition()));
+                window.map.fitBounds(bounds);
             }
         }
 
         // 지도 관련 함수들
         function clearMap() {
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
+            if (window.markers) {
+                window.markers.forEach(marker => marker.setMap(null));
+                window.markers = [];
+            }
         }
 
         function addPhotoToMap(photoData) {
-            if (!map || !photoData.location) return;
+            if (!window.map || !photoData.location) return;
 
             const marker = new google.maps.Marker({
                 position: {
                     lat: photoData.location.lat,
                     lng: photoData.location.lng
                 },
-                map: map,
+                map: window.map,
                 icon: {
                     url: 'data:image/svg+xml;base64,' + btoa(`
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF4757">
@@ -942,7 +1008,7 @@
                 showPhotoPopup(photoData);
             });
 
-            markers.push(marker);
+            window.markers.push(marker);
         }
 
         function showPhotoPopup(photoData) {
@@ -1000,12 +1066,15 @@
         async function handleFiles(files) {
             console.log('handleFiles 호출됨, 파일 수:', files.length);
             
-            if (!currentUser) {
+            // 전역 변수에서 currentUser 가져오기
+            const user = window.currentUser;
+            
+            if (!user) {
                 alert('로그인이 필요합니다.');
                 return;
             }
 
-            if (!userLocation) {
+            if (!window.userLocation) {
                 console.log('위치 정보가 없음, 위치 요청 중...');
                 getCurrentLocation();
                 setTimeout(() => handleFiles(files), 1000);
@@ -1036,6 +1105,9 @@
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
             
+            // 전역 변수에서 currentUser 가져오기
+            const user = window.currentUser;
+            
             if (uploadProgress) uploadProgress.style.display = 'block';
 
             try {
@@ -1043,7 +1115,7 @@
                     console.log('파일 업로드 시작:', file.name);
                     
                     // Storage에 파일 업로드
-                    const storageRef = ref(storage, `photos/${currentUser.uid}/${Date.now()}-${file.name}`);
+                    const storageRef = ref(storage, `photos/${user.uid}/${Date.now()}-${file.name}`);
                     const uploadTask = uploadBytesResumable(storageRef, file);
                     
                     await new Promise((resolve, reject) => {
@@ -1063,15 +1135,15 @@
                                     
                                     // Firestore에 메타데이터 저장
                                     await addDoc(collection(db, 'photos'), {
-                                        userId: currentUser.uid,
-                                        userName: currentUser.displayName,
-                                        userPhoto: currentUser.photoURL,
+                                        userId: user.uid,
+                                        userName: user.displayName,
+                                        userPhoto: user.photoURL,
                                         fileURL: downloadURL,
                                         fileName: file.name,
                                         fileSize: file.size,
                                         location: {
-                                            lat: userLocation.lat,
-                                            lng: userLocation.lng
+                                            lat: window.userLocation.lat,
+                                            lng: window.userLocation.lng
                                         },
                                         description: `${file.name}`,
                                         uploadTime: serverTimestamp(),
@@ -1148,7 +1220,7 @@
                 uploadArea.addEventListener('click', (e) => {
                     if (!e.target.classList.contains('btn')) {
                         console.log('업로드 영역 클릭됨');
-                        if (currentUser) {
+                        if (window.currentUser) {
                             fileInput.click();
                         } else {
                             alert('로그인이 필요합니다.');
@@ -1178,6 +1250,54 @@
         window.addEventListener('load', () => {
             getCurrentLocation();
         });
+
+        // 전역 변수 업데이트 함수
+        function updateUserLocation(location) {
+            window.userLocation = location;
+            userLocation = location;
+        }
+
+        // getCurrentLocation 함수 수정
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const location = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        updateUserLocation(location);
+                        updateLocationInfo(location);
+                        
+                        if (window.map) {
+                            window.map.setCenter(location);
+                            
+                            // 사용자 위치 마커
+                            new google.maps.Marker({
+                                position: location,
+                                map: window.map,
+                                icon: {
+                                    url: 'data:image/svg+xml;base64,' + btoa(`
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4285F4">
+                                            <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="3" fill="white"/>
+                                        </svg>
+                                    `),
+                                    scaledSize: new google.maps.Size(24, 24),
+                                    anchor: new google.maps.Point(12, 12)
+                                },
+                                title: "내 현재 위치"
+                            });
+                        }
+                    },
+                    (error) => {
+                        console.error('위치 정보를 가져올 수 없습니다:', error);
+                        document.getElementById('currentLocation').textContent = '위치 정보를 사용할 수 없습니다';
+                    }
+                );
+            }
+        }
     </script>
 </body>
 </html>
