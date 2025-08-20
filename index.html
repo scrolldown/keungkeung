@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>위치 기반 포토 업로더</title>
-    <meta name="description" content="사진을 업로드하고 지도에서 위치를 확인하세요">
+    <title>위치 기반 소셜 포토 지도</title>
+    <meta name="description" content="사진을 업로드하고 다른 사용자들과 위치를 공유하세요">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📸</text></svg>">
     <style>
         * {
@@ -31,20 +31,67 @@
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             padding: 20px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             position: relative;
             z-index: 1000;
         }
 
-        .header h1 {
+        .header-left h1 {
             font-size: 20px;
             font-weight: 700;
             margin-bottom: 5px;
         }
 
-        .header p {
+        .header-left p {
             opacity: 0.9;
             font-size: 12px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .login-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .login-btn, .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .login-btn:hover, .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .tab-container {
@@ -79,6 +126,17 @@
         }
 
         .tab-content.active {
+            display: block;
+        }
+
+        .auth-required {
+            display: none;
+            padding: 40px 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        .auth-required.show {
             display: block;
         }
 
@@ -135,6 +193,42 @@
             font-size: 12px;
             color: #666;
             margin-bottom: 15px;
+        }
+
+        .filter-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
 
         .file-input {
@@ -341,6 +435,29 @@
             display: none;
         }
 
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .header-right {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
         .photo-popup {
             position: fixed;
             top: 50%;
@@ -391,24 +508,32 @@
             font-size: 16px;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                border-radius: 0;
-            }
+        .photo-popup-author {
+            font-size: 12px;
+            color: #667eea;
+            margin-bottom: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📸 위치 기반 포토 업로더</h1>
-            <p>사진을 업로드하고 지도에서 위치를 확인하세요</p>
+            <div class="header-left">
+                <h1>📸 소셜 포토 지도</h1>
+                <p>사진을 업로드하고 다른 사용자들과 위치를 공유하세요</p>
+            </div>
+            <div class="header-right">
+                <div class="login-section" id="loginSection">
+                    <button class="login-btn" onclick="signInWithGoogle()">
+                        구글 로그인
+                    </button>
+                </div>
+                <div class="user-info" id="userInfo">
+                    <img class="user-avatar" id="userAvatar" src="" alt="">
+                    <span class="user-name" id="userName"></span>
+                    <button class="logout-btn" onclick="signOutUser()">로그아웃</button>
+                </div>
+            </div>
         </div>
         
         <div class="tab-container">
@@ -417,11 +542,28 @@
         </div>
 
         <div id="uploadTab" class="tab-content active">
-            <div class="upload-section">
+            <div class="auth-required" id="uploadAuthRequired">
+                <h3>로그인이 필요합니다</h3>
+                <p>사진을 업로드하려면 구글 계정으로 로그인해주세요.</p>
+                <button class="btn btn-primary" onclick="signInWithGoogle()" style="margin-top: 20px;">
+                    구글 로그인
+                </button>
+            </div>
+            
+            <div class="upload-section" id="uploadContent" style="display: none;">
+                <div class="filter-section">
+                    <div class="filter-title">📋 사진 필터</div>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all" onclick="setPhotoFilter('all')">전체 보기</button>
+                        <button class="filter-btn" data-filter="mine" onclick="setPhotoFilter('mine')">내 사진만</button>
+                        <button class="filter-btn" data-filter="others" onclick="setPhotoFilter('others')">다른 사용자</button>
+                    </div>
+                </div>
+
                 <div class="upload-area" id="uploadArea">
                     <div class="upload-icon">📷</div>
                     <div class="upload-text">사진을 선택하거나 드래그하세요</div>
-                    <div class="upload-subtext">GPS 위치 정보가 자동으로 기록됩니다</div>
+                    <div class="upload-subtext">GPS 위치 정보가 자동으로 기록되어 다른 사용자들과 공유됩니다</div>
                     <div class="btn-group">
                         <button class="btn btn-primary" onclick="openCamera()">
                             📷 카메라
@@ -462,6 +604,7 @@
                 <div class="map-controls" style="display: none;" id="mapControls">
                     <button class="map-btn" onclick="centerMap()" title="내 위치로">📍</button>
                     <button class="map-btn" onclick="showAllPhotos()" title="모든 사진">🖼️</button>
+                    <button class="map-btn" onclick="refreshPhotos()" title="새로고침">🔄</button>
                 </div>
             </div>
         </div>
@@ -472,29 +615,260 @@
         <button class="photo-popup-close" onclick="closePhotoPopup()">×</button>
         <img id="popupImage" src="" alt="" style="width: 100%; height: 200px; object-fit: cover;">
         <div class="photo-popup-content">
+            <div class="photo-popup-author" id="popupAuthor"></div>
             <div class="photo-popup-title" id="popupTitle"></div>
             <div class="photo-popup-location" id="popupLocation"></div>
         </div>
     </div>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU&libraries=geometry&callback=initMap" async defer></script>
-    <script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        // ⚠️ 여기에 Firebase 설정을 입력하세요
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+
+        // Firebase 프로젝트 설정 - 실제 Firebase Console에서 복사한 값으로 교체
+        const firebaseConfig = {
+          apiKey: "AIzaSyAQqqzYXlV-b4ArDaMsPMJTvBf4LREuKaY",
+          authDomain: "keungkeung-bc128.firebaseapp.com",
+          projectId: "keungkeung-bc128",
+          storageBucket: "keungkeung-bc128.firebasestorage.app",
+          messagingSenderId: "50954588097",
+          appId: "1:50954588097:web:1dad4903ce8bf78489a940",
+          measurementId: "G-QYXQ81H8FJ"
+        };
+
+        // Firebase 설정 확인
+        console.log('Firebase 설정:', firebaseConfig);
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        console.log('Firebase 앱 초기화 완료:', app);
+        console.log('Auth 객체:', auth);
+
+        // Firebase 연결 상태 확인
+        auth.onAuthStateChanged((user) => {
+            console.log('Auth 상태 변경:', user ? '로그인됨' : '로그아웃됨');
+        });
+
+        // 전역 변수들
+        window.auth = auth;
+        window.db = db;
+        window.storage = storage;
+        window.signInWithPopup = signInWithPopup;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.GoogleAuthProvider = GoogleAuthProvider;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.query = query;
+        window.where = where;
+        window.orderBy = orderBy;
+        window.onSnapshot = onSnapshot;
+        window.serverTimestamp = serverTimestamp;
+        window.doc = doc;
+        window.updateDoc = updateDoc;
+        window.deleteDoc = deleteDoc;
+        window.ref = ref;
+        window.uploadBytesResumable = uploadBytesResumable;
+        window.getDownloadURL = getDownloadURL;
+        window.deleteObject = deleteObject;
+
+        // 사용자 상태 관리 전역 변수
+        let currentUser = null;
+        let currentFilter = 'all';
+        let photosUnsubscribe = null;
         let uploadedFiles = [];
-        let map;
+        let map = null;
         let userLocation = null;
         let markers = [];
-        let infoWindow;
+
+        // 전역으로 내보내기
+        window.currentUser = currentUser;
+        window.currentFilter = currentFilter;
+        window.photosUnsubscribe = photosUnsubscribe;
+        window.uploadedFiles = uploadedFiles;
+        window.map = map;
+        window.userLocation = userLocation;
+        window.markers = markers;
+
+        // 인증 상태 변화 감지
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            window.currentUser = user; // 전역 변수 업데이트
+            updateAuthUI(user);
+            if (user) {
+                console.log('사용자 로그인:', user.displayName);
+                loadPhotosRealtime();
+            } else {
+                console.log('사용자 로그아웃');
+                if (photosUnsubscribe) {
+                    photosUnsubscribe();
+                    photosUnsubscribe = null;
+                }
+                clearMap();
+            }
+        });
+
+        // Auth UI 업데이트
+        function updateAuthUI(user) {
+            const loginSection = document.getElementById('loginSection');
+            const userInfo = document.getElementById('userInfo');
+            const uploadAuthRequired = document.getElementById('uploadAuthRequired');
+            const uploadContent = document.getElementById('uploadContent');
+
+            if (user) {
+                loginSection.style.display = 'none';
+                userInfo.style.display = 'flex';
+                uploadAuthRequired.classList.remove('show');
+                uploadContent.style.display = 'block';
+
+                document.getElementById('userAvatar').src = user.photoURL || '';
+                document.getElementById('userName').textContent = user.displayName || '사용자';
+            } else {
+                loginSection.style.display = 'flex';
+                userInfo.style.display = 'none';
+                uploadAuthRequired.classList.add('show');
+                uploadContent.style.display = 'none';
+            }
+        }
+
+        // 전역 함수들을 window에 할당
+        window.signInWithGoogle = async function() {
+            console.log('Google 로그인 시도 중...');
+            
+            // Auth 객체 상태 확인
+            console.log('Auth 설정:', auth.config);
+            
+            const provider = new GoogleAuthProvider();
+            provider.addScope('profile');
+            provider.addScope('email');
+            
+            try {
+                console.log('signInWithPopup 호출...');
+                const result = await signInWithPopup(auth, provider);
+                console.log('로그인 성공:', result.user.displayName);
+                console.log('사용자 정보:', {
+                    uid: result.user.uid,
+                    name: result.user.displayName,
+                    email: result.user.email
+                });
+            } catch (error) {
+                console.error('로그인 실패 상세 정보:', {
+                    code: error.code,
+                    message: error.message,
+                    customData: error.customData,
+                    operationType: error.operationType
+                });
+                
+                // 사용자 친화적인 에러 메시지
+                let friendlyMessage = '';
+                switch(error.code) {
+                    case 'auth/configuration-not-found':
+                        friendlyMessage = 'Firebase Authentication이 설정되지 않았습니다. 관리자에게 문의하세요.';
+                        break;
+                    case 'auth/popup-closed-by-user':
+                        friendlyMessage = '로그인이 취소되었습니다.';
+                        break;
+                    case 'auth/popup-blocked':
+                        friendlyMessage = '팝업이 차단되었습니다. 팝업을 허용해주세요.';
+                        break;
+                    case 'auth/network-request-failed':
+                        friendlyMessage = '네트워크 오류가 발생했습니다.';
+                        break;
+                    default:
+                        friendlyMessage = `로그인 실패: ${error.message}`;
+                }
+                
+                alert(friendlyMessage);
+            }
+        };
+
+        window.signOutUser = async function() {
+            try {
+                await signOut(auth);
+                console.log('로그아웃 성공');
+            } catch (error) {
+                console.error('로그아웃 실패:', error);
+            }
+        };
+
+        window.setPhotoFilter = function(filter) {
+            currentFilter = filter;
+            window.currentFilter = filter; // 전역 변수 업데이트
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+            
+            if (window.currentUser) {
+                loadPhotosRealtime();
+            }
+        };
+
+        // 실시간 사진 로딩
+        function loadPhotosRealtime() {
+            if (photosUnsubscribe) {
+                photosUnsubscribe();
+            }
+
+            let q = query(collection(db, 'photos'), orderBy('uploadTime', 'desc'));
+            
+            if (window.currentFilter === 'mine') {
+                q = query(collection(db, 'photos'), 
+                    where('userId', '==', window.currentUser.uid), 
+                    orderBy('uploadTime', 'desc'));
+            } else if (window.currentFilter === 'others') {
+                q = query(collection(db, 'photos'), 
+                    where('userId', '!=', window.currentUser.uid), 
+                    orderBy('uploadTime', 'desc'));
+            }
+
+            photosUnsubscribe = onSnapshot(q, (snapshot) => {
+                clearMap();
+                snapshot.forEach((doc) => {
+                    const photoData = { id: doc.id, ...doc.data() };
+                    addPhotoToMap(photoData);
+                });
+                console.log(`${snapshot.size}개의 사진을 로드했습니다.`);
+            });
+        }
+
+        window.refreshPhotos = function() {
+            if (window.currentUser) {
+                loadPhotosRealtime();
+            }
+        };
+
+        // 나머지는 기존 코드와 동일하게 유지...
+        window.uploadedFiles = [];
+        window.map = null;
+        window.userLocation = null;
+        window.markers = [];
+    </script>
+
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU&libraries=geometry&callback=initMap" async defer></script>
+    
+    <script>
+        // 기존 Google Maps 및 UI 코드는 여기에 유지
+        // (이전 코드와 동일하게 유지하되, Firebase 관련 부분만 수정)
 
         // Google Maps 초기화
         function initMap() {
-            // 로딩 메시지 숨기기
             document.getElementById('mapLoading').style.display = 'none';
             document.getElementById('mapControls').style.display = 'flex';
 
-            // 기본 위치 (서울)
             const defaultLocation = { lat: 37.5665, lng: 126.9780 };
             
-            map = new google.maps.Map(document.getElementById('map'), {
+            window.map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 15,
                 center: defaultLocation,
                 mapTypeControl: false,
@@ -509,9 +883,6 @@
                 ]
             });
 
-            infoWindow = new google.maps.InfoWindow();
-
-            // 사용자 위치 가져오기
             getCurrentLocation();
         }
 
@@ -525,7 +896,6 @@
                             lng: position.coords.longitude
                         };
                         
-                        updateLocationInfo(userLocation);
                         
                         if (map) {
                             map.setCenter(userLocation);
@@ -566,7 +936,7 @@
 
         // 탭 전환
         function showTab(tabName) {
-            console.log('탭 전환:', tabName); // 디버깅용
+            console.log('탭 전환:', tabName);
             
             const tabs = document.querySelectorAll('.tab');
             const contents = document.querySelectorAll('.tab-content');
@@ -580,7 +950,7 @@
             if (targetTab) targetTab.classList.add('active');
             if (targetContent) targetContent.classList.add('active');
             
-            if (tabName === 'map' && !map) {
+            if (tabName === 'map' && !window.map) {
                 setTimeout(() => {
                     if (typeof google !== 'undefined' && google.maps) {
                         initMap();
@@ -591,32 +961,37 @@
 
         // 지도 제어
         function centerMap() {
-            if (map && userLocation) {
-                map.setCenter(userLocation);
-                map.setZoom(15);
+            if (window.map && window.userLocation) {
+                window.map.setCenter(window.userLocation);
+                window.map.setZoom(15);
             }
         }
 
         function showAllPhotos() {
-            if (map && markers.length > 0) {
+            if (window.map && window.markers.length > 0) {
                 const bounds = new google.maps.LatLngBounds();
-                markers.forEach(marker => bounds.extend(marker.getPosition()));
-                map.fitBounds(bounds);
+                window.markers.forEach(marker => bounds.extend(marker.getPosition()));
+                window.map.fitBounds(bounds);
             }
         }
 
-        // 사진에 마커 추가
-        function addPhotoMarker(file, location) {
-            if (!map) {
-                console.log('지도가 아직 로드되지 않음');
-                return;
+        // 지도 관련 함수들
+        function clearMap() {
+            if (window.markers) {
+                window.markers.forEach(marker => marker.setMap(null));
+                window.markers = [];
             }
+        }
 
-            console.log('마커 추가:', file.name, location); // 디버깅용
+        function addPhotoToMap(photoData) {
+            if (!window.map || !photoData.location) return;
 
             const marker = new google.maps.Marker({
-                position: location,
-                map: map,
+                position: {
+                    lat: photoData.location.lat,
+                    lng: photoData.location.lng
+                },
+                map: window.map,
                 icon: {
                     url: 'data:image/svg+xml;base64,' + btoa(`
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF4757">
@@ -626,115 +1001,48 @@
                     scaledSize: new google.maps.Size(32, 32),
                     anchor: new google.maps.Point(16, 32)
                 },
-                title: file.name
+                title: photoData.description || '사진'
             });
 
-            // 마커 클릭 이벤트
             marker.addListener('click', () => {
-                console.log('마커 클릭됨:', file.name); // 디버깅용
-                showPhotoPopup(file, location);
+                showPhotoPopup(photoData);
             });
 
-            markers.push(marker);
+            window.markers.push(marker);
         }
 
-        function showPhotoPopup(file, location) {
-            console.log('showPhotoPopup 호출됨:', file.name); // 디버깅용
+        function showPhotoPopup(photoData) {
+            console.log('사진 팝업 표시:', photoData);
             
             const popup = document.getElementById('photoPopup');
             const image = document.getElementById('popupImage');
+            const author = document.getElementById('popupAuthor');
             const title = document.getElementById('popupTitle');
-            const locationText = document.getElementById('popupLocation');
+            const location = document.getElementById('popupLocation');
 
-            console.log('DOM 요소들:', { popup, image, title, locationText }); // 디버깅용
-
-            // DOM 요소 존재 확인
-            if (!popup) {
-                console.error('photoPopup 요소를 찾을 수 없습니다.');
-                return;
-            }
-            if (!image) {
-                console.error('popupImage 요소를 찾을 수 없습니다.');
-                return;
-            }
-            if (!title) {
-                console.error('popupTitle 요소를 찾을 수 없습니다.');
-                return;
-            }
-            if (!locationText) {
-                console.error('popupLocation 요소를 찾을 수 없습니다.');
+            if (!popup || !image || !author || !title || !location) {
+                console.error('팝업 요소를 찾을 수 없습니다.');
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    console.log('이미지 로드 중...'); // 디버깅용
-                    image.src = e.target.result;
-                    title.textContent = file.name;
-                    locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
-                    popup.style.display = 'block';
-                    console.log('팝업 표시 완료'); // 디버깅용
-                } catch (error) {
-                    console.error('팝업 표시 중 오류:', error);
-                }
-            };
+            image.src = photoData.fileURL;
+            author.textContent = `📸 ${photoData.userName || '익명'}`;
+            title.textContent = photoData.description || '설명 없음';
+            location.textContent = `📍 위도: ${photoData.location.lat.toFixed(6)}, 경도: ${photoData.location.lng.toFixed(6)}`;
             
-            reader.onerror = (error) => {
-                console.error('파일 읽기 오류:', error);
-            };
-            
-            reader.readAsDataURL(file);
+            popup.style.display = 'block';
         }
 
         function closePhotoPopup() {
             const popup = document.getElementById('photoPopup');
             if (popup) {
                 popup.style.display = 'none';
-                console.log('팝업 닫힘'); // 디버깅용
-            } else {
-                console.error('팝업 요소를 찾을 수 없습니다.');
             }
         }
 
-        // 파일 업로드 관련 변수들 (더 이상 전역으로 선언하지 않음)
-        // DOM 요소들은 필요할 때마다 getElementById로 가져옴
-
-        // 드래그 앤 드롭 이벤트
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = Array.from(e.dataTransfer.files);
-            handleFiles(files);
-        });
-
-        uploadArea.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('btn')) {
-                fileInput.click();
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            handleFiles(files);
-        });
-
-        cameraInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            handleFiles(files);
-        });
-
+        // 파일 업로드 관련 함수들
         function openCamera() {
-            console.log('openCamera 호출됨'); // 디버깅용
+            console.log('openCamera 호출됨');
             const cameraInput = document.getElementById('cameraInput');
             if (cameraInput) {
                 cameraInput.click();
@@ -745,7 +1053,7 @@
         }
 
         function openGallery() {
-            console.log('openGallery 호출됨'); // 디버깅용
+            console.log('openGallery 호출됨');
             const fileInput = document.getElementById('fileInput');
             if (fileInput) {
                 fileInput.click();
@@ -755,11 +1063,19 @@
             }
         }
 
-        function handleFiles(files) {
-            console.log('handleFiles 호출됨, 파일 수:', files.length); // 디버깅용
+        async function handleFiles(files) {
+            console.log('handleFiles 호출됨, 파일 수:', files.length);
             
-            if (!userLocation) {
-                console.log('위치 정보가 없음, 위치 요청 중...'); // 디버깅용
+            // 전역 변수에서 currentUser 가져오기
+            const user = window.currentUser;
+            
+            if (!user) {
+                alert('로그인이 필요합니다.');
+                return;
+            }
+
+            if (!window.userLocation) {
+                console.log('위치 정보가 없음, 위치 요청 중...');
                 getCurrentLocation();
                 setTimeout(() => handleFiles(files), 1000);
                 return;
@@ -777,168 +1093,111 @@
                 return true;
             });
 
-            console.log('유효한 파일 수:', validFiles.length); // 디버깅용
+            console.log('유효한 파일 수:', validFiles.length);
 
             if (validFiles.length > 0) {
-                simulateUpload(validFiles);
+                await uploadFilesToFirebase(validFiles);
             }
         }
 
-        function simulateUpload(files) {
-            console.log('simulateUpload 호출됨'); // 디버깅용
-            
+        async function uploadFilesToFirebase(files) {
             const uploadProgress = document.getElementById('uploadProgress');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
             
-            if (!uploadProgress || !progressFill || !progressText) {
-                console.error('업로드 진행률 요소를 찾을 수 없습니다.');
-                // 요소가 없어도 파일 처리는 계속 진행
-                addFilesToPreview(files);
+            // 전역 변수에서 currentUser 가져오기
+            const user = window.currentUser;
+            
+            if (uploadProgress) uploadProgress.style.display = 'block';
+
+            try {
+                for (const file of files) {
+                    console.log('파일 업로드 시작:', file.name);
+                    
+                    // Storage에 파일 업로드
+                    const storageRef = ref(storage, `photos/${user.uid}/${Date.now()}-${file.name}`);
+                    const uploadTask = uploadBytesResumable(storageRef, file);
+                    
+                    await new Promise((resolve, reject) => {
+                        uploadTask.on('state_changed', 
+                            (snapshot) => {
+                                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                if (progressFill) progressFill.style.width = progress + '%';
+                                if (progressText) progressText.textContent = `업로드 중... ${Math.round(progress)}%`;
+                            },
+                            (error) => {
+                                console.error('업로드 실패:', error);
+                                reject(error);
+                            },
+                            async () => {
+                                try {
+                                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                    
+                                    // Firestore에 메타데이터 저장
+                                    await addDoc(collection(db, 'photos'), {
+                                        userId: user.uid,
+                                        userName: user.displayName,
+                                        userPhoto: user.photoURL,
+                                        fileURL: downloadURL,
+                                        fileName: file.name,
+                                        fileSize: file.size,
+                                        location: {
+                                            lat: window.userLocation.lat,
+                                            lng: window.userLocation.lng
+                                        },
+                                        description: `${file.name}`,
+                                        uploadTime: serverTimestamp(),
+                                        visibility: 'public'
+                                    });
+                                    
+                                    console.log('파일 업로드 완료:', file.name);
+                                    resolve();
+                                } catch (error) {
+                                    console.error('메타데이터 저장 실패:', error);
+                                    reject(error);
+                                }
+                            }
+                        );
+                    });
+                }
+                
+                // 업로드 완료
+                if (uploadProgress) uploadProgress.style.display = 'none';
                 showSuccessMessage();
-                return;
+                
+            } catch (error) {
+                console.error('업로드 중 오류:', error);
+                alert('업로드 중 오류가 발생했습니다: ' + error.message);
+                if (uploadProgress) uploadProgress.style.display = 'none';
             }
-
-            uploadProgress.style.display = 'block';
-            let progress = 0;
-            
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(progressInterval);
-                    setTimeout(() => {
-                        uploadProgress.style.display = 'none';
-                        addFilesToPreview(files);
-                        showSuccessMessage();
-                    }, 500);
-                }
-                
-                progressFill.style.width = progress + '%';
-                progressText.textContent = `업로드 중... ${Math.round(progress)}%`;
-            }, 200);
-        }
-
-        function addFilesToPreview(files) {
-            files.forEach(file => {
-                const fileId = Date.now() + Math.random();
-                const location = userLocation ? {...userLocation} : {lat: 37.5665, lng: 126.9780};
-                
-                // 약간의 랜덤 오프셋 추가
-                location.lat += (Math.random() - 0.5) * 0.001;
-                location.lng += (Math.random() - 0.5) * 0.001;
-                
-                uploadedFiles.push({ id: fileId, file, location });
-                
-                // 지도에 마커 추가
-                if (map) {
-                    addPhotoMarker(file, location);
-                }
-                
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const previewItem = createPreviewItem(fileId, file, location, e.target.result);
-                        const previewArea = document.getElementById('previewArea');
-                        if (previewArea) {
-                            previewArea.appendChild(previewItem);
-                        }
-                    } catch (error) {
-                        console.error('미리보기 생성 중 오류:', error);
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function createPreviewItem(fileId, file, location, imageSrc) {
-            const item = document.createElement('div');
-            item.className = 'preview-item';
-            item.innerHTML = `
-                <img src="${imageSrc}" alt="${file.name}" class="preview-img">
-                <div class="preview-info">
-                    <div class="file-details">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-size">${formatFileSize(file.size)}</div>
-                        <div class="file-location">📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}</div>
-                    </div>
-                    <button class="remove-btn" onclick="removeFile(${fileId})">×</button>
-                </div>
-            `;
-            return item;
-        }
-
-        function removeFile(fileId) {
-            console.log('removeFile 호출됨:', fileId); // 디버깅용
-            
-            const fileIndex = uploadedFiles.findIndex(f => f.id === fileId);
-            if (fileIndex !== -1) {
-                // 마커 제거
-                if (markers[fileIndex]) {
-                    markers[fileIndex].setMap(null);
-                    markers.splice(fileIndex, 1);
-                    console.log('마커 제거됨'); // 디버깅용
-                }
-                
-                uploadedFiles.splice(fileIndex, 1);
-                console.log('파일 배열에서 제거됨'); // 디버깅용
-            }
-            
-            const previewArea = document.getElementById('previewArea');
-            if (previewArea) {
-                const previewItems = previewArea.children;
-                for (let i = 0; i < previewItems.length; i++) {
-                    const removeBtn = previewItems[i].querySelector('.remove-btn');
-                    if (removeBtn && removeBtn.getAttribute('onclick').includes(fileId)) {
-                        previewItems[i].remove();
-                        console.log('미리보기 아이템 제거됨'); // 디버깅용
-                        break;
-                    }
-                }
-            }
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
         function showSuccessMessage() {
-            console.log('showSuccessMessage 호출됨'); // 디버깅용
+            console.log('showSuccessMessage 호출됨');
             const successMessage = document.getElementById('successMessage');
             if (successMessage) {
                 successMessage.style.display = 'block';
                 setTimeout(() => {
                     successMessage.style.display = 'none';
                 }, 3000);
-                console.log('성공 메시지 표시됨'); // 디버깅용
+                console.log('성공 메시지 표시됨');
             } else {
                 console.error('successMessage 요소를 찾을 수 없습니다.');
             }
         }
 
-        // 페이지 로드 시 위치 정보 요청
-        window.addEventListener('load', () => {
-            getCurrentLocation();
-        });
-
         // DOM이 완전히 로드된 후 이벤트 리스너 등록
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM 로드 완료'); // 디버깅용
+            console.log('DOM 로드 완료');
             
-            // DOM 요소들 초기화
             const uploadArea = document.getElementById('uploadArea');
             const fileInput = document.getElementById('fileInput');
             const cameraInput = document.getElementById('cameraInput');
-            const previewArea = document.getElementById('previewArea');
 
-            console.log('DOM 요소들 확인:', { uploadArea, fileInput, cameraInput, previewArea }); // 디버깅용
+            console.log('DOM 요소들 확인:', { uploadArea, fileInput, cameraInput });
 
             if (uploadArea && fileInput && cameraInput) {
-                console.log('이벤트 리스너 등록 중...'); // 디버깅용
+                console.log('이벤트 리스너 등록 중...');
                 
                 // 드래그 앤 드롭 이벤트
                 uploadArea.addEventListener('dragover', (e) => {
@@ -954,59 +1213,91 @@
                     e.preventDefault();
                     uploadArea.classList.remove('dragover');
                     const files = Array.from(e.dataTransfer.files);
-                    console.log('드롭된 파일들:', files); // 디버깅용
+                    console.log('드롭된 파일들:', files);
                     handleFiles(files);
                 });
 
                 uploadArea.addEventListener('click', (e) => {
                     if (!e.target.classList.contains('btn')) {
-                        console.log('업로드 영역 클릭됨'); // 디버깅용
-                        fileInput.click();
+                        console.log('업로드 영역 클릭됨');
+                        if (window.currentUser) {
+                            fileInput.click();
+                        } else {
+                            alert('로그인이 필요합니다.');
+                        }
                     }
                 });
 
                 fileInput.addEventListener('change', (e) => {
                     const files = Array.from(e.target.files);
-                    console.log('파일 입력 변경됨:', files); // 디버깅용
+                    console.log('파일 입력 변경됨:', files);
                     handleFiles(files);
                 });
 
                 cameraInput.addEventListener('change', (e) => {
                     const files = Array.from(e.target.files);
-                    console.log('카메라 입력 변경됨:', files); // 디버깅용
+                    console.log('카메라 입력 변경됨:', files);
                     handleFiles(files);
                 });
                 
-                console.log('모든 이벤트 리스너 등록 완료'); // 디버깅용
+                console.log('모든 이벤트 리스너 등록 완료');
             } else {
                 console.error('필수 DOM 요소를 찾을 수 없습니다:', { uploadArea, fileInput, cameraInput });
             }
         });
+
+        // 페이지 로드 시 위치 정보 요청
+        window.addEventListener('load', () => {
+            getCurrentLocation();
+        });
+
+        // 전역 변수 업데이트 함수
+        function updateUserLocation(location) {
+            window.userLocation = location;
+            userLocation = location;
+        }
+
+        // getCurrentLocation 함수 수정
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const location = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        updateUserLocation(location);
+                        updateLocationInfo(location);
+                        
+                        if (window.map) {
+                            window.map.setCenter(location);
+                            
+                            // 사용자 위치 마커
+                            new google.maps.Marker({
+                                position: location,
+                                map: window.map,
+                                icon: {
+                                    url: 'data:image/svg+xml;base64,' + btoa(`
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4285F4">
+                                            <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="3" fill="white"/>
+                                        </svg>
+                                    `),
+                                    scaledSize: new google.maps.Size(24, 24),
+                                    anchor: new google.maps.Point(12, 12)
+                                },
+                                title: "내 현재 위치"
+                            });
+                        }
+                    },
+                    (error) => {
+                        console.error('위치 정보를 가져올 수 없습니다:', error);
+                        document.getElementById('currentLocation').textContent = '위치 정보를 사용할 수 없습니다';
+                    }
+                );
+            }
+        }
     </script>
-    <script type="module">
-      // Import the functions you need from the SDKs you need
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
-      // TODO: Add SDKs for Firebase products that you want to use
-      // https://firebase.google.com/docs/web/setup#available-libraries
-    
-      // Your web app's Firebase configuration
-      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-      const firebaseConfig = {
-        apiKey: "AIzaSyAQqqzYXlV-b4ArDaMsPMJTvBf4LREuKaY",
-        authDomain: "keungkeung-bc128.firebaseapp.com",
-        projectId: "keungkeung-bc128",
-        storageBucket: "keungkeung-bc128.firebasestorage.app",
-        messagingSenderId: "50954588097",
-        appId: "1:50954588097:web:1dad4903ce8bf78489a940",
-        measurementId: "G-QYXQ81H8FJ"
-      };
-    
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
-</script>
 </body>
 </html>
-
-
