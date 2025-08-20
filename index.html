@@ -464,7 +464,7 @@
                 </div>
                 <div class="photo-popup" id="photoPopup">
                     <button class="photo-popup-close" onclick="closePhotoPopup()">×</button>
-                    <img id="popupImage" src="" alt="">
+                    <img id="popupImage" src="" alt="" style="width: 100%; height: 200px; object-fit: cover;">
                     <div class="photo-popup-content">
                         <div class="photo-popup-title" id="popupTitle"></div>
                         <div class="photo-popup-location" id="popupLocation"></div>
@@ -563,14 +563,19 @@
 
         // 탭 전환
         function showTab(tabName) {
+            console.log('탭 전환:', tabName); // 디버깅용
+            
             const tabs = document.querySelectorAll('.tab');
             const contents = document.querySelectorAll('.tab-content');
             
             tabs.forEach(tab => tab.classList.remove('active'));
             contents.forEach(content => content.classList.remove('active'));
             
-            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            const targetTab = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+            const targetContent = document.getElementById(tabName + 'Tab');
+            
+            if (targetTab) targetTab.classList.add('active');
+            if (targetContent) targetContent.classList.add('active');
             
             if (tabName === 'map' && !map) {
                 setTimeout(() => {
@@ -599,7 +604,12 @@
 
         // 사진에 마커 추가
         function addPhotoMarker(file, location) {
-            if (!map) return;
+            if (!map) {
+                console.log('지도가 아직 로드되지 않음');
+                return;
+            }
+
+            console.log('마커 추가:', file.name, location); // 디버깅용
 
             const marker = new google.maps.Marker({
                 position: location,
@@ -618,40 +628,82 @@
 
             // 마커 클릭 이벤트
             marker.addListener('click', () => {
-                showPhotoPopup(file, location);
+                console.log('마커 클릭됨:', file.name); // 디버깅용
+                // 지도 탭으로 전환 (필요한 경우)
+                showTab('map');
+                // 잠시 후 팝업 표시 (DOM이 준비될 시간을 줌)
+                setTimeout(() => {
+                    showPhotoPopup(file, location);
+                }, 100);
             });
 
             markers.push(marker);
         }
 
         function showPhotoPopup(file, location) {
+            console.log('showPhotoPopup 호출됨:', file.name); // 디버깅용
+            
+            // 팝업이 지도 탭에서만 작동하도록 확인
+            const mapTab = document.getElementById('mapTab');
+            if (!mapTab || !mapTab.classList.contains('active')) {
+                console.log('지도 탭이 활성화되지 않음');
+                return;
+            }
+
             const popup = document.getElementById('photoPopup');
             const image = document.getElementById('popupImage');
             const title = document.getElementById('popupTitle');
             const locationText = document.getElementById('popupLocation');
 
+            console.log('DOM 요소들:', { popup, image, title, locationText }); // 디버깅용
+
             // DOM 요소 존재 확인
-            if (!popup || !image || !title || !locationText) {
-                console.error('팝업 요소를 찾을 수 없습니다.');
+            if (!popup) {
+                console.error('photoPopup 요소를 찾을 수 없습니다.');
+                return;
+            }
+            if (!image) {
+                console.error('popupImage 요소를 찾을 수 없습니다.');
+                return;
+            }
+            if (!title) {
+                console.error('popupTitle 요소를 찾을 수 없습니다.');
+                return;
+            }
+            if (!locationText) {
+                console.error('popupLocation 요소를 찾을 수 없습니다.');
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
+                    console.log('이미지 로드 중...'); // 디버깅용
                     image.src = e.target.result;
                     title.textContent = file.name;
                     locationText.textContent = `📍 위도: ${location.lat.toFixed(6)}, 경도: ${location.lng.toFixed(6)}`;
                     popup.style.display = 'block';
+                    console.log('팝업 표시 완료'); // 디버깅용
                 } catch (error) {
                     console.error('팝업 표시 중 오류:', error);
                 }
             };
+            
+            reader.onerror = (error) => {
+                console.error('파일 읽기 오류:', error);
+            };
+            
             reader.readAsDataURL(file);
         }
 
         function closePhotoPopup() {
-            document.getElementById('photoPopup').style.display = 'none';
+            const popup = document.getElementById('photoPopup');
+            if (popup) {
+                popup.style.display = 'none';
+                console.log('팝업 닫힘'); // 디버깅용
+            } else {
+                console.error('팝업 요소를 찾을 수 없습니다.');
+            }
         }
 
         // 파일 업로드 관련 변수들 (전역으로 선언하되 이벤트는 DOMContentLoaded에서 등록)
