@@ -629,16 +629,14 @@
         import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
-        // Firebase 프로젝트 설정 - keungkeung-bc128 실제 설정값
+        // Firebase 프로젝트 설정 - 실제 Firebase Console에서 복사한 값으로 교체
         const firebaseConfig = {
-            apiKey: "AIzaSyAQqqzYXlV-b4ArDaMsPMJTvBf4LREuKaY",
-            authDomain: "keungkeung-bc128.firebaseapp.com",
-            databaseURL: "https://keungkeung-bc128-default-rtdb.firebaseio.com",
-            projectId: "keungkeung-bc128",
-            storageBucket: "keungkeung-bc128.firebasestorage.app",
-            messagingSenderId: "50954588097",
-            appId: "1:50954588097:web:1dad4903ce8bf78489a940",
-            measurementId: "G-QYXQ81H8FJ"
+            apiKey: "실제_API_키_여기_입력",
+            authDomain: "프로젝트ID.firebaseapp.com",
+            projectId: "프로젝트_ID_여기_입력",
+            storageBucket: "프로젝트ID.appspot.com",
+            messagingSenderId: "실제_숫자_여기_입력",
+            appId: "실제_앱ID_여기_입력"
         };
 
         // Firebase 설정 확인
@@ -936,8 +934,8 @@
         window.markers = [];
     </script>
 
-    <!-- Google Maps API - callback 다시 추가 -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU&libraries=geometry&callback=initMap" async defer></script>
+    <!-- Google Maps API - callback 제거 -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgn5XdaAN2yorZSRkGhIDdUq-Ie87NsaU&libraries=geometry" async defer></script>
     
     <script>
         // 기존 Google Maps 및 UI 코드는 여기에 유지
@@ -1030,14 +1028,9 @@
             }
         }
 
-        // 전역 initMap 함수 (Google Maps API 콜백용)
+        // 전역 initMap 함수 (Google Maps API 콜백용 - 사용하지 않음)
         window.initMap = function() {
-            console.log('🗺️ Google Maps API 콜백 호출됨 - 지도 초기화 시작');
-            
-            // 직접 initMap 함수 호출
-            setTimeout(() => {
-                initMap();
-            }, 100);
+            console.log('Google Maps API 콜백 호출됨 (무시)');
         };
 
         // 현재 위치 가져오기
@@ -1088,7 +1081,7 @@
             locationInfo.classList.add('active');
         }
 
-        // 탭 전환 함수 - 지도 초기화 로직 수정
+        // 탭 전환 함수 - 완전히 새로 작성
         function showTab(tabName) {
             console.log('🔄 탭 전환 요청:', tabName);
             
@@ -1127,27 +1120,11 @@
                     }
                 } else {
                     console.log('🔄 새 지도 초기화 필요');
-                    // Google Maps API가 로드되었는지 확인 후 초기화
-                    if (typeof google !== 'undefined' && google.maps) {
-                        console.log('🗺️ Google Maps API 준비됨, 즉시 초기화');
+                    // 충분한 시간을 두고 지도 초기화
+                    setTimeout(() => {
+                        console.log('🗺️ 지도 초기화 시작');
                         initMap();
-                    } else {
-                        console.log('⏳ Google Maps API 로딩 대기...');
-                        // API 로딩을 기다림
-                        const checkGoogleMaps = setInterval(() => {
-                            if (typeof google !== 'undefined' && google.maps) {
-                                console.log('✅ Google Maps API 로드 완료, 지도 초기화');
-                                clearInterval(checkGoogleMaps);
-                                initMap();
-                            }
-                        }, 500);
-                        
-                        // 최대 10초 대기
-                        setTimeout(() => {
-                            clearInterval(checkGoogleMaps);
-                            console.error('❌ Google Maps API 로딩 타임아웃');
-                        }, 10000);
-                    }
+                    }, 300);
                 }
             }
         }
@@ -1508,10 +1485,20 @@
             }
         });
 
-        // 페이지 로드 시 초기화 - Google Maps 체크 제거
+        // 페이지 로드 시 초기화
         window.addEventListener('load', () => {
             console.log('🚀 페이지 로드 완료');
             getCurrentLocation();
+            
+            // Google Maps API 로딩 상태 확인
+            const checkGoogleMaps = setInterval(() => {
+                if (typeof google !== 'undefined' && google.maps) {
+                    console.log('✅ Google Maps API 로드 완료');
+                    clearInterval(checkGoogleMaps);
+                } else {
+                    console.log('⏳ Google Maps API 로딩 대기 중...');
+                }
+            }, 1000);
         });
 
         // 전역 변수 업데이트 함수
