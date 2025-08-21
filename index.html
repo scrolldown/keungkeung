@@ -941,97 +941,80 @@
         // 기존 Google Maps 및 UI 코드는 여기에 유지
         // (이전 코드와 동일하게 유지하되, Firebase 관련 부분만 수정)
 
-        // Google Maps 초기화 함수 - 완전히 새로 작성
+        // Google Maps 초기화 - DOM 준비 상태 확인
         function initMap() {
-            console.log('🗺️ initMap 함수 호출됨');
+            console.log('initMap 호출됨, DOM 상태:', document.readyState);
             
-            // 필요한 DOM 요소들 확인
-            const mapContainer = document.getElementById('map');
-            const mapLoading = document.getElementById('mapLoading');
-            const mapControls = document.getElementById('mapControls');
+            // DOM 요소들이 존재할 때까지 재시도
+            const maxRetries = 10;
+            let retryCount = 0;
             
-            console.log('DOM 요소 상태:', {
-                mapContainer: !!mapContainer,
-                mapLoading: !!mapLoading, 
-                mapControls: !!mapControls
-            });
-            
-            // 필수 요소가 없으면 잠시 후 재시도
-            if (!mapContainer) {
-                console.warn('⚠️ map 컨테이너가 없습니다. 1초 후 재시도...');
-                setTimeout(() => {
-                    if (document.getElementById('map')) {
-                        initMap();
-                    }
-                }, 1000);
-                return;
-            }
-            
-            // Google Maps API 로딩 확인
-            if (typeof google === 'undefined' || !google.maps) {
-                console.warn('⚠️ Google Maps API가 아직 로드되지 않았습니다. 1초 후 재시도...');
-                setTimeout(initMap, 1000);
-                return;
-            }
-            
-            try {
-                // 로딩 표시 숨기기
-                if (mapLoading) {
-                    mapLoading.style.display = 'none';
-                    console.log('✅ 지도 로딩 표시 숨김');
-                }
+            function tryInitialize() {
+                retryCount++;
+                console.log(`지도 초기화 시도 ${retryCount}/${maxRetries}`);
                 
-                // 컨트롤 버튼 표시
-                if (mapControls) {
-                    mapControls.style.display = 'flex';
-                    console.log('✅ 지도 컨트롤 표시');
-                }
+                // DOM 요소 존재 확인
+                const mapLoading = document.getElementById('mapLoading');
+                const mapControls = document.getElementById('mapControls');
+                const mapElement = document.getElementById('map');
                 
-                // 기본 위치 (서울)
-                const defaultLocation = { lat: 37.5665, lng: 126.9780 };
-                
-                // Google Maps 생성
-                window.map = new google.maps.Map(mapContainer, {
-                    zoom: 13,
-                    center: defaultLocation,
-                    mapTypeControl: false,
-                    fullscreenControl: false,
-                    streetViewControl: false,
-                    styles: [
-                        {
-                            featureType: "poi",
-                            elementType: "labels",
-                            stylers: [{ visibility: "off" }]
-                        }
-                    ]
+                console.log('DOM 요소 확인:', { 
+                    mapLoading: !!mapLoading, 
+                    mapControls: !!mapControls, 
+                    mapElement: !!mapElement 
                 });
                 
-                console.log('✅ Google Maps 초기화 완료');
-                
-                // 마커 배열 초기화
-                if (!window.markers) {
-                    window.markers = [];
+                // 모든 요소가 준비되지 않았으면 재시도
+                if (!mapElement || !mapLoading || !mapControls) {
+                    if (retryCount < maxRetries) {
+                        console.log('DOM 요소 준비 안됨, 100ms 후 재시도...');
+                        setTimeout(tryInitialize, 100);
+                        return;
+                    } else {
+                        console.error('DOM 요소를 찾을 수 없습니다. 최대 재시도 횟수 초과');
+                        return;
+                    }
                 }
                 
-                // 현재 위치 가져오기
-                getCurrentLocation();
-                
-                // 로그인된 사용자가 있고 지도 탭이 활성화된 경우 사진 로드
-                const mapTab = document.getElementById('mapTab');
-                if (window.currentUser && mapTab && mapTab.classList.contains('active')) {
-                    console.log('🔄 사진 데이터 로딩 시작');
-                    loadPhotosRealtime();
+                // DOM 요소가 모두 준비되었으면 지도 초기화 진행
+                try {
+                    mapLoading.style.display = 'none';
+                    mapControls.style.display = 'flex';
+                    
+                    const defaultLocation = { lat: 37.5665, lng: 126.9780 };
+                    
+                    window.map = new google.maps.Map(mapElement, {
+                        zoom: 15,
+                        center: defaultLocation,
+                        mapTypeControl: false,
+                        fullscreenControl: false,
+                        streetViewControl: false,
+                        styles: [
+                            {
+                                featureType: "poi",
+                                elementType: "labels",
+                                stylers: [{ visibility: "off" }]
+                            }
+                        ]
+                    });
+                    
+                    console.log('✅ Google Maps 초기화 성공');
+                    getCurrentLocation();
+                    
+                    // 로그인된 사용자가 있으면 사진 로드
+                    if (window.currentUser) {
+                        console.log('사용자 로그인됨, 사진 로딩 시작');
+                        loadPhotosRealtime();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Google Maps 초기화 실패:', error);
                 }
-                
-            } catch (error) {
-                console.error('❌ Google Maps 초기화 실패:', error);
             }
+            
+            // 첫 번째 시도
+            tryInitialize();
         }
-
-        // 전역 initMap 함수 (Google Maps API 콜백용 - 사용하지 않음)
-        window.initMap = function() {
-            console.log('Google Maps API 콜백 호출됨 (무시)');
-        };
 
         // 현재 위치 가져오기
         function getCurrentLocation() {
@@ -1081,103 +1064,71 @@
             locationInfo.classList.add('active');
         }
 
-        // 탭 전환 함수 - 완전히 새로 작성
+        // 탭 전환 - 지도 초기화 로직 개선
         function showTab(tabName) {
-            console.log('🔄 탭 전환 요청:', tabName);
+            console.log('탭 전환:', tabName);
             
-            // 모든 탭 비활성화
             const tabs = document.querySelectorAll('.tab');
             const contents = document.querySelectorAll('.tab-content');
             
             tabs.forEach(tab => tab.classList.remove('active'));
             contents.forEach(content => content.classList.remove('active'));
             
-            // 선택된 탭 활성화
             const targetTab = document.querySelector(`[onclick="showTab('${tabName}')"]`);
             const targetContent = document.getElementById(tabName + 'Tab');
             
-            if (targetTab) {
-                targetTab.classList.add('active');
-                console.log('✅ 탭 버튼 활성화:', tabName);
-            }
+            if (targetTab) targetTab.classList.add('active');
+            if (targetContent) targetContent.classList.add('active');
             
-            if (targetContent) {
-                targetContent.classList.add('active');
-                console.log('✅ 탭 콘텐츠 활성화:', tabName);
-            }
-            
-            // 지도 탭인 경우 특별 처리
+            // 지도 탭으로 전환 시 지도 초기화
             if (tabName === 'map') {
-                console.log('🗺️ 지도 탭 선택됨');
+                console.log('지도 탭 활성화');
                 
-                // 지도가 이미 있는지 확인
+                // 지도가 이미 있으면 기존 사진들 다시 로드
                 if (window.map) {
-                    console.log('✅ 기존 지도 사용');
-                    // 기존 사진들 다시 표시
+                    console.log('지도가 이미 존재함, 사진 다시 로드');
                     if (window.currentUser) {
-                        console.log('🔄 기존 사진 데이터 다시 로드');
                         loadPhotosRealtime();
                     }
-                } else {
-                    console.log('🔄 새 지도 초기화 필요');
-                    // 충분한 시간을 두고 지도 초기화
-                    setTimeout(() => {
-                        console.log('🗺️ 지도 초기화 시작');
-                        initMap();
-                    }, 300);
+                    return;
                 }
+                
+                // Google Maps API가 로드되었는지 확인
+                if (typeof google === 'undefined' || !google.maps) {
+                    console.error('Google Maps API가 로드되지 않았습니다.');
+                    setTimeout(() => showTab(tabName), 1000); // 1초 후 재시도
+                    return;
+                }
+                
+                console.log('새 지도 초기화 필요');
+                // DOM이 탭 전환으로 업데이트될 시간을 줌
+                setTimeout(() => {
+                    // 다시 한번 지도 탭이 활성화되어 있는지 확인
+                    const currentMapTab = document.getElementById('mapTab');
+                    if (currentMapTab && currentMapTab.classList.contains('active')) {
+                        console.log('지도 탭 활성 상태 확인됨, 지도 초기화 시작');
+                        initMap();
+                    } else {
+                        console.log('지도 탭이 비활성 상태, 초기화 취소');
+                    }
+                }, 200); // 200ms 후 초기화
             }
         }
 
-        // 전역 함수로 등록
-        window.showTab = showTab;
-
-        // 지도 제어 함수들 - 전역으로 등록
-        window.centerMap = function() {
-            console.log('🎯 지도 중앙 이동 요청');
+        // 지도 제어
+        function centerMap() {
             if (window.map && window.userLocation) {
                 window.map.setCenter(window.userLocation);
                 window.map.setZoom(15);
-                console.log('✅ 내 위치로 이동 완료');
-            } else {
-                console.warn('⚠️ 지도 또는 위치 정보가 없습니다.');
-                if (!window.userLocation) {
-                    getCurrentLocation();
-                }
             }
-        };
-
-        window.showAllPhotos = function() {
-            console.log('📷 모든 사진 보기 요청');
-            if (window.map && window.markers && window.markers.length > 0) {
-                const bounds = new google.maps.LatLngBounds();
-                let validMarkers = 0;
-                
-                window.markers.forEach(marker => {
-                    if (marker && marker.getPosition) {
-                        bounds.extend(marker.getPosition());
-                        validMarkers++;
-                    }
-                });
-                
-                if (validMarkers > 0) {
-                    window.map.fitBounds(bounds);
-                    console.log(`✅ ${validMarkers}개 마커 영역으로 지도 조정`);
-                } else {
-                    console.warn('⚠️ 유효한 마커가 없습니다.');
-                }
-            } else {
-                console.warn('⚠️ 지도 또는 마커가 없습니다.');
-            }
-        };
-
-        // 내부 함수들
-        function centerMap() {
-            window.centerMap();
         }
 
         function showAllPhotos() {
-            window.showAllPhotos();
+            if (window.map && window.markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                window.markers.forEach(marker => bounds.extend(marker.getPosition()));
+                window.map.fitBounds(bounds);
+            }
         }
 
         // 지도 관련 함수들
@@ -1485,20 +1436,36 @@
             }
         });
 
-        // 페이지 로드 시 초기화
+        // 페이지 로드 시 위치 정보 요청
         window.addEventListener('load', () => {
-            console.log('🚀 페이지 로드 완료');
+            console.log('페이지 로드 완료');
             getCurrentLocation();
             
-            // Google Maps API 로딩 상태 확인
-            const checkGoogleMaps = setInterval(() => {
+            // Google Maps API 로드 상태 확인
+            function checkGoogleMapsAPI() {
                 if (typeof google !== 'undefined' && google.maps) {
                     console.log('✅ Google Maps API 로드 완료');
-                    clearInterval(checkGoogleMaps);
+                    return true;
                 } else {
-                    console.log('⏳ Google Maps API 로딩 대기 중...');
+                    console.log('Google Maps API 로딩 중...');
+                    return false;
                 }
-            }, 1000);
+            }
+            
+            // API 로드를 위해 주기적으로 확인
+            const apiCheckInterval = setInterval(() => {
+                if (checkGoogleMapsAPI()) {
+                    clearInterval(apiCheckInterval);
+                }
+            }, 500);
+            
+            // 최대 10초 후 체크 중단
+            setTimeout(() => {
+                clearInterval(apiCheckInterval);
+                if (!checkGoogleMapsAPI()) {
+                    console.error('❌ Google Maps API 로드 실패 (타임아웃)');
+                }
+            }, 10000);
         });
 
         // 전역 변수 업데이트 함수
