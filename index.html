@@ -733,14 +733,18 @@
         window.userLocation = userLocation;
         window.markers = markers;
 
-        // 인증 상태 변화 감지
+        // 인증 상태 변화 감지 - loadPhotosRealtime 함수 정의 후 위치
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
             window.currentUser = user; // 전역 변수 업데이트
             updateAuthUI(user);
             if (user) {
                 console.log('사용자 로그인:', user.displayName);
-                loadPhotosRealtime();
+                // 지도 탭이 활성화된 경우에만 사진 로드
+                const mapTab = document.getElementById('mapTab');
+                if (mapTab && mapTab.classList.contains('active')) {
+                    loadPhotosRealtime();
+                }
             } else {
                 console.log('사용자 로그아웃');
                 if (photosUnsubscribe) {
@@ -842,12 +846,16 @@
             });
             document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
             
-            if (window.currentUser) {
+            // 지도 탭이 활성화된 경우에만 필터 적용
+            const mapTab = document.getElementById('mapTab');
+            if (window.currentUser && mapTab && mapTab.classList.contains('active')) {
                 loadPhotosRealtime();
+            } else {
+                console.log('지도 탭이 비활성화 상태이므로 필터 적용 건너뜀');
             }
         };
 
-        // 실시간 사진 로딩 - 더 안전한 방식
+        // 실시간 사진 로딩 - 무한 로그 방지 및 위치 개선
         function loadPhotosRealtime() {
             if (!window.currentUser) {
                 console.log('사용자가 로그인하지 않음, 사진 로딩 중단');
@@ -890,7 +898,6 @@
                 clearMap();
                 
                 let addedCount = 0;
-                const photoPromises = [];
                 
                 snapshot.forEach((doc) => {
                     const photoData = { id: doc.id, ...doc.data() };
@@ -900,28 +907,30 @@
                         return;
                     }
                     
-                    // 지도가 준비될 때까지 대기 후 마커 추가
-                    const addMarkerPromise = new Promise((resolve) => {
-                        const tryAddMarker = () => {
+                    // 지도가 준비된 경우에만 마커 추가
+                    if (window.map && google && google.maps) {
+                        addPhotoToMap(photoData);
+                        addedCount++;
+                    } else {
+                        // 현재 탭이 지도 탭인 경우에만 대기 로그 출력
+                        const mapTab = document.getElementById('mapTab');
+                        if (mapTab && mapTab.classList.contains('active')) {
+                            console.log('지도 준비 대기 중... (탭 활성화됨)');
+                        }
+                        
+                        // 한 번만 재시도
+                        setTimeout(() => {
                             if (window.map && google && google.maps) {
                                 addPhotoToMap(photoData);
                                 addedCount++;
-                                resolve();
-                            } else {
-                                console.log('지도 대기 중...');
-                                setTimeout(tryAddMarker, 200);
                             }
-                        };
-                        tryAddMarker();
-                    });
-                    
-                    photoPromises.push(addMarkerPromise);
+                        }, 500);
+                    }
                 });
                 
-                // 모든 마커 추가 완료 대기
-                Promise.all(photoPromises).then(() => {
+                if (addedCount > 0) {
                     console.log(`✅ ${addedCount}개 마커 표시 완료`);
-                });
+                }
                 
             }, (error) => {
                 console.error('❌ Firestore 오류:', error);
@@ -930,8 +939,12 @@
         }
 
         window.refreshPhotos = function() {
-            if (window.currentUser) {
+            // 지도 탭이 활성화된 경우에만 새로고침
+            const mapTab = document.getElementById('mapTab');
+            if (window.currentUser && mapTab && mapTab.classList.contains('active')) {
                 loadPhotosRealtime();
+            } else {
+                console.log('지도 탭이 비활성화 상태이므로 사진 새로고침 건너뜀');
             }
         };
 
@@ -1110,10 +1123,15 @@
                 // 사용자 위치 가져오기
                 getCurrentLocation();
                 
-                // 로그인된 사용자가 있으면 사진 로드
+                // 로그인된 사용자가 있고 지도 탭이 활성화된 경우 사진 로드
                 if (window.currentUser) {
-                    console.log('사용자 로그인 상태, 사진 로드 시작');
-                    loadPhotosRealtime();
+                    const mapTab = document.getElementById('mapTab');
+                    if (mapTab && mapTab.classList.contains('active')) {
+                        console.log('사용자 로그인 상태이고 지도 탭 활성화됨, 사진 로드 시작');
+                        loadPhotosRealtime();
+                    } else {
+                        console.log('사용자 로그인 상태이지만 지도 탭 비활성화됨');
+                    }
                 } else {
                     console.log('사용자 미로그인 상태');
                 }
