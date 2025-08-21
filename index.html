@@ -733,6 +733,151 @@
         window.userLocation = userLocation;
         window.markers = markers;
 
+        // 실시간 사진 로딩 함수 - 먼저 정의
+        function loadPhotosRealtime() {
+            if (!window.currentUser) {
+                console.log('사용자가 로그인하지 않음, 사진 로딩 중단');
+                return;
+            }
+
+            console.log('사진 로딩 시작, 현재 필터:', window.currentFilter);
+
+            if (photosUnsubscribe) {
+                photosUnsubscribe();
+                console.log('기존 리스너 해제됨');
+            }
+
+            let q;
+            
+            if (window.currentFilter === 'mine') {
+                q = query(
+                    collection(db, 'photos'), 
+                    where('userId', '==', window.currentUser.uid),
+                    orderBy('uploadTime', 'desc')
+                );
+            } else if (window.currentFilter === 'others') {
+                q = query(
+                    collection(db, 'photos'), 
+                    orderBy('uploadTime', 'desc')
+                );
+            } else {
+                q = query(
+                    collection(db, 'photos'), 
+                    orderBy('uploadTime', 'desc')
+                );
+            }
+
+            console.log('Firestore 쿼리 시작...');
+
+            photosUnsubscribe = onSnapshot(q, (snapshot) => {
+                console.log('📸 Firestore 응답:', snapshot.size + '개 문서');
+                
+                // 기존 마커 제거
+                clearMap();
+                
+                let addedCount = 0;
+                
+                snapshot.forEach((doc) => {
+                    const photoData = { id: doc.id, ...doc.data() };
+                    
+                    // 클라이언트 사이드 필터링
+                    if (window.currentFilter === 'others' && photoData.userId === window.currentUser.uid) {
+                        return;
+                    }
+                    
+                    // 지도가 준비된 경우에만 마커 추가
+                    if (window.map && google && google.maps) {
+                        addPhotoToMap(photoData);
+                        addedCount++;
+                    } else {
+                        // 현재 탭이 지도 탭인 경우에만 대기 로그 출력
+                        const mapTab = document.getElementById('mapTab');
+                        if (mapTab && mapTab.classList.contains('active')) {
+                            console.log('지도 준비 대기 중... (탭 활성화됨)');
+                        }
+                        
+                        // 한 번만 재시도
+                        setTimeout(() => {
+                            if (window.map && google && google.maps) {
+                                addPhotoToMap(photoData);
+                                addedCount++;
+                            }
+                        }, 500);
+                    }
+                });
+                
+                if (addedCount > 0) {
+                    console.log(`✅ ${addedCount}개 마커 표시 완료`);
+                }
+                
+            }, (error) => {
+                console.error('❌ Firestore 오류:', error);
+                alert('사진을 불러오는 중 오류가 발생했습니다.');
+            });
+        }
+
+        // 지도 관련 함수들 - 먼저 정의
+        function clearMap() {
+            if (window.markers && window.markers.length > 0) {
+                console.log('기존 마커 제거:', window.markers.length + '개');
+                window.markers.forEach(marker => {
+                    if (marker && marker.setMap) {
+                        marker.setMap(null);
+                    }
+                });
+                window.markers = [];
+            }
+        }
+
+        function addPhotoToMap(photoData) {
+            if (!window.map) {
+                console.warn('지도가 초기화되지 않음, 마커 추가 건너뜀');
+                return;
+            }
+            
+            if (!photoData.location) {
+                console.warn('사진에 위치 정보가 없음:', photoData.fileName);
+                return;
+            }
+
+            console.log('마커 추가:', photoData.fileName, photoData.location);
+
+            try {
+                const marker = new google.maps.Marker({
+                    position: {
+                        lat: photoData.location.lat,
+                        lng: photoData.location.lng
+                    },
+                    map: window.map,
+                    icon: {
+                        url: 'data:image/svg+xml;base64,' + btoa(`
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF4757">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            </svg>
+                        `),
+                        scaledSize: new google.maps.Size(32, 32),
+                        anchor: new google.maps.Point(16, 32)
+                    },
+                    title: photoData.description || photoData.fileName || '사진'
+                });
+
+                marker.addListener('click', () => {
+                    console.log('마커 클릭됨:', photoData.fileName);
+                    showPhotoPopup(photoData);
+                });
+
+                if (!window.markers) {
+                    window.markers = [];
+                }
+                window.markers.push(marker);
+                
+                console.log('✅ 마커 추가 완료, 총 마커 수:', window.markers.length);
+                
+            } catch (error) {
+                console.error('❌ 마커 추가 실패:', error);
+            }
+        }
+
         // 인증 상태 변화 감지 - loadPhotosRealtime 함수 정의 후 위치
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
@@ -855,87 +1000,31 @@
             }
         };
 
-        // 실시간 사진 로딩 - 무한 로그 방지 및 위치 개선
-        function loadPhotosRealtime() {
-            if (!window.currentUser) {
-                console.log('사용자가 로그인하지 않음, 사진 로딩 중단');
-                return;
-            }
-
-            console.log('사진 로딩 시작, 현재 필터:', window.currentFilter);
-
-            if (photosUnsubscribe) {
-                photosUnsubscribe();
-                console.log('기존 리스너 해제됨');
-            }
-
-            let q;
+        // 탭 전환 - 직접적인 지도 초기화
+        function showTab(tabName) {
+            console.log('탭 전환:', tabName);
             
-            if (window.currentFilter === 'mine') {
-                q = query(
-                    collection(db, 'photos'), 
-                    where('userId', '==', window.currentUser.uid),
-                    orderBy('uploadTime', 'desc')
-                );
-            } else if (window.currentFilter === 'others') {
-                q = query(
-                    collection(db, 'photos'), 
-                    orderBy('uploadTime', 'desc')
-                );
-            } else {
-                q = query(
-                    collection(db, 'photos'), 
-                    orderBy('uploadTime', 'desc')
-                );
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            const targetTab = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+            const targetContent = document.getElementById(tabName + 'Tab');
+            
+            if (targetTab) targetTab.classList.add('active');
+            if (targetContent) targetContent.classList.add('active');
+            
+            // 지도 탭으로 전환 시 직접 초기화
+            if (tabName === 'map') {
+                console.log('지도 탭 활성화, 직접 초기화 시작');
+                
+                // 충분한 시간을 주고 지도 초기화
+                setTimeout(() => {
+                    initializeGoogleMap();
+                }, 300);
             }
-
-            console.log('Firestore 쿼리 시작...');
-
-            photosUnsubscribe = onSnapshot(q, (snapshot) => {
-                console.log('📸 Firestore 응답:', snapshot.size + '개 문서');
-                
-                // 기존 마커 제거
-                clearMap();
-                
-                let addedCount = 0;
-                
-                snapshot.forEach((doc) => {
-                    const photoData = { id: doc.id, ...doc.data() };
-                    
-                    // 클라이언트 사이드 필터링
-                    if (window.currentFilter === 'others' && photoData.userId === window.currentUser.uid) {
-                        return;
-                    }
-                    
-                    // 지도가 준비된 경우에만 마커 추가
-                    if (window.map && google && google.maps) {
-                        addPhotoToMap(photoData);
-                        addedCount++;
-                    } else {
-                        // 현재 탭이 지도 탭인 경우에만 대기 로그 출력
-                        const mapTab = document.getElementById('mapTab');
-                        if (mapTab && mapTab.classList.contains('active')) {
-                            console.log('지도 준비 대기 중... (탭 활성화됨)');
-                        }
-                        
-                        // 한 번만 재시도
-                        setTimeout(() => {
-                            if (window.map && google && google.maps) {
-                                addPhotoToMap(photoData);
-                                addedCount++;
-                            }
-                        }, 500);
-                    }
-                });
-                
-                if (addedCount > 0) {
-                    console.log(`✅ ${addedCount}개 마커 표시 완료`);
-                }
-                
-            }, (error) => {
-                console.error('❌ Firestore 오류:', error);
-                alert('사진을 불러오는 중 오류가 발생했습니다.');
-            });
         }
 
         window.refreshPhotos = function() {
@@ -1019,34 +1108,7 @@
             locationInfo.classList.add('active');
         }
 
-        // 탭 전환 - 직접적인 지도 초기화
-        function showTab(tabName) {
-            console.log('탭 전환:', tabName);
-            
-            const tabs = document.querySelectorAll('.tab');
-            const contents = document.querySelectorAll('.tab-content');
-            
-            tabs.forEach(tab => tab.classList.remove('active'));
-            contents.forEach(content => content.classList.remove('active'));
-            
-            const targetTab = document.querySelector(`[onclick="showTab('${tabName}')"]`);
-            const targetContent = document.getElementById(tabName + 'Tab');
-            
-            if (targetTab) targetTab.classList.add('active');
-            if (targetContent) targetContent.classList.add('active');
-            
-            // 지도 탭으로 전환 시 직접 초기화
-            if (tabName === 'map') {
-                console.log('지도 탭 활성화, 직접 초기화 시작');
-                
-                // 충분한 시간을 주고 지도 초기화
-                setTimeout(() => {
-                    initializeGoogleMap();
-                }, 300);
-            }
-        }
-
-        // 지도 초기화 함수 - 로컬 함수로 구현
+        // 지도 초기화 함수 - loadPhotosRealtime 정의 후 위치
         function initializeGoogleMap() {
             console.log('initializeGoogleMap 호출됨');
             
